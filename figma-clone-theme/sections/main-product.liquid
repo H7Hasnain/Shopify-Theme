@@ -1,0 +1,62 @@
+<section class="section section--product">
+  <div class="container">
+    <div class="grid grid--2" style="align-items: start;">
+      <div>
+        {% if product.media.size > 0 %}
+          <div class="grid grid--2">
+            {% assign first = true %}
+            {% for media in product.media %}
+              <div class="card" style="overflow:hidden;">
+                {{ media | image_url: width: 1600 | image_tag: loading: 'lazy', sizes: '(max-width: 960px) 100vw, 50vw' }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+      <div>
+        <h1 class="section__title">{{ product.title }}</h1>
+        {% render 'price', product: product %}
+        {% if product.description != blank %}
+          <div class="rte" style="margin-top: 12px;">{{ product.description }}</div>
+        {% endif %}
+        <div style="margin-top: 16px;">
+          {% form 'product', product %}
+            {% if product.has_only_default_variant == false %}
+              {% for option in product.options_with_values %}
+                <label for="Option-{{ option.position }}">{{ option.name }}</label>
+                <select id="Option-{{ option.position }}" name="options[{{ option.name }}]">
+                  {% for value in option.values %}
+                    <option value="{{ value }}" {% if option.selected_value == value %}selected{% endif %}>{{ value }}</option>
+                  {% endfor %}
+                </select>
+              {% endfor %}
+            {% endif %}
+            <div style="display:flex; gap:8px; align-items:center; margin-top: 8px;">
+              <input type="number" name="quantity" min="1" value="1" aria-label="{{ 'general.quantity' | t }}" style="width: 80px; padding: 8px 10px; border-radius: var(--radius); border: 1px solid rgba(0,0,0,.15);">
+              <button type="submit" class="btn" {% unless product.available %}disabled{% endunless %}>{{ 'products.product.add_to_cart' | t | default: 'Add to cart' }}</button>
+            </div>
+            {% if section.settings.show_vendor and product.vendor %}
+              <p style="margin-top:8px; opacity:.7;">By {{ product.vendor }}</p>
+            {% endif %}
+            {% if section.settings.show_share %}
+              <div style="margin-top:12px; display:flex; gap:8px;">
+                <a class="btn btn--ghost" href="https://www.facebook.com/sharer/sharer.php?u={{ shop.url }}{{ product.url }}" target="_blank" rel="noopener">Facebook</a>
+                <a class="btn btn--ghost" href="https://twitter.com/intent/tweet?url={{ shop.url }}{{ product.url }}&text={{ product.title }}" target="_blank" rel="noopener">X</a>
+              </div>
+            {% endif %}
+          {% endform %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Main product",
+  "settings": [
+    { "type": "checkbox", "id": "show_vendor", "label": "Show vendor", "default": false },
+    { "type": "checkbox", "id": "show_share", "label": "Show share buttons", "default": false }
+  ]
+}
+{% endschema %}

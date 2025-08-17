@@ -1,0 +1,27 @@
+<section class="section section--cta">
+  <div class="container">
+    <div class="card" style="background: var(--color-primary); color:#fff; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 24px;">
+      <div>
+        {% if section.settings.subheading %}<p class="section__subtitle" style="color:rgba(255,255,255,.85);">{{ section.settings.subheading }}</p>{% endif %}
+        {% if section.settings.heading %}<h2 class="section__title" style="color:#fff;">{{ section.settings.heading }}</h2>{% endif %}
+        {% if section.settings.text %}<p style="margin:0; color:rgba(255,255,255,.9);">{{ section.settings.text }}</p>{% endif %}
+      </div>
+      {% if section.settings.button_label and section.settings.button_link %}
+        <div><a class="btn btn--secondary" href="{{ section.settings.button_link }}" style="background:#fff; color: var(--color-primary);">{{ section.settings.button_label }}</a></div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Call to action",
+  "settings": [
+    { "type": "text", "id": "subheading", "label": "Eyebrow" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Ready to get started?" },
+    { "type": "textarea", "id": "text", "label": "Text" },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "Shop now" },
+    { "type": "url", "id": "button_link", "label": "Button link" }
+  ]
+}
+{% endschema %}

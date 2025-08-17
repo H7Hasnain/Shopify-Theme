@@ -1,0 +1,26 @@
+{
+  "general": {
+    "search": "Search",
+    "menu": "Menu",
+    "navigation": "Navigation",
+    "newsletter": "Newsletter",
+    "subscribe": "Subscribe",
+    "quantity": "Quantity",
+    "subtotal": "Subtotal",
+    "checkout": "Checkout",
+    "remove": "Remove"
+  },
+  "sections": {
+    "header": {
+      "account": "Account",
+      "cart": "Cart"
+    },
+    "footer": {
+      "copyright": "All rights reserved."
+    },
+    "hero": {
+      "primary_button": "Shop now",
+      "secondary_button": "Learn more"
+    }
+  }
+}

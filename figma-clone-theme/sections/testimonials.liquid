@@ -1,0 +1,44 @@
+<section class="section section--testimonials">
+  <div class="container">
+    {% if section.settings.heading %}<h2 class="section__title">{{ section.settings.heading }}</h2>{% endif %}
+    {% if section.settings.text %}<p class="section__subtitle">{{ section.settings.text }}</p>{% endif %}
+    <div class="grid grid--{{ section.settings.columns }}">
+      {% for block in section.blocks %}
+        <figure class="card" {{ block.shopify_attributes }}>
+          <div class="card__body">
+            {% if block.settings.stars > 0 %}
+              <div aria-label="Rating" style="color:#F59E0B; margin-bottom:6px;">
+                {% for i in (1..block.settings.stars) %}★{% endfor %}
+              </div>
+            {% endif %}
+            <blockquote style="margin:0 0 8px;">{{ block.settings.quote }}</blockquote>
+            <figcaption style="opacity:.8;">— {{ block.settings.author }}</figcaption>
+          </div>
+        </figure>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Testimonials",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "What customers say" },
+    { "type": "textarea", "id": "text", "label": "Subheading" },
+    { "type": "range", "id": "columns", "label": "Columns", "min": 1, "max": 3, "step": 1, "default": 3 }
+  ],
+  "blocks": [
+    {
+      "type": "testimonial",
+      "name": "Testimonial",
+      "settings": [
+        { "type": "range", "id": "stars", "label": "Stars", "min": 0, "max": 5, "step": 1, "default": 5 },
+        { "type": "textarea", "id": "quote", "label": "Quote", "default": "This is the best purchase I've ever made!" },
+        { "type": "text", "id": "author", "label": "Author", "default": "Happy Customer" }
+      ]
+    }
+  ],
+  "max_blocks": 9
+}
+{% endschema %}

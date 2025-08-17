@@ -1,0 +1,13 @@
+{
+  "sections": {
+    "main": {
+      "type": "rich-text",
+      "settings": {
+        "heading": "Page title",
+        "content": "<p>Use the Shopify editor to build your page content with sections.</p>",
+        "alignment": "left"
+      }
+    }
+  },
+  "order": ["main"]
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="{{ request.locale.iso_code }}">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>{{ page_title }}{% if current_tags %} – {{ current_tags | join: ', ' }}{% endif %}{% if current_page != 1 %} – Page {{ current_page }}{% endif %}{% unless page_title contains shop.name %} – {{ shop.name }}{% endunless %}</title>
+    <link rel="canonical" href="{{ canonical_url }}">
+    {{ 'theme.css' | asset_url | stylesheet_tag }}
+    <script src="{{ 'theme.js' | asset_url }}" defer="defer"></script>
+    {{ content_for_header }}
+    {{ settings.type_base_font | font_face: font_display: 'swap' }}
+    {{ settings.type_heading_font | font_face: font_display: 'swap' }}
+    <style>
+      :root{
+        --color-background: {{ settings.color_background }};
+        --color-text: {{ settings.color_text }};
+        --color-primary: {{ settings.color_primary }};
+        --color-secondary: {{ settings.color_secondary }};
+        --font-base: {{ settings.type_base_font.family }}, {{ settings.type_base_font.fallback_families }};
+        --font-heading: {{ settings.type_heading_font.family }}, {{ settings.type_heading_font.fallback_families }};
+        --container-max-width: {{ settings.container_max_width | default: 1200 }}px;
+      }
+    </style>
+  </head>
+  <body class="theme">
+    {{ content_for_layout }}
+  </body>
+</html>
