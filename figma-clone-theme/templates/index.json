@@ -1,0 +1,50 @@
+{
+  "sections": {
+    "hero": {
+      "type": "hero",
+      "settings": {
+        "subheading": "New arrivals",
+        "heading": "Design-forward, everyday essentials",
+        "text": "Elevate your space with thoughtfully designed pieces.",
+        "primary_label": "Shop now",
+        "secondary_label": "Explore"
+      }
+    },
+    "featured": {
+      "type": "featured-collection",
+      "settings": {
+        "heading": "Featured products",
+        "text": "A curated selection for you.",
+        "product_count": 8,
+        "columns": 4,
+        "show_view_all": true,
+        "view_all_label": "View all"
+      }
+    },
+    "iwt": {
+      "type": "image-with-text",
+      "settings": {
+        "subheading": "Crafted with care",
+        "heading": "Built to last",
+        "text": "Our products are made with premium materials and attention to detail.",
+        "primary_label": "Learn more"
+      }
+    },
+    "rich": {
+      "type": "rich-text",
+      "settings": {
+        "subheading": "Our story",
+        "heading": "From sketch to space",
+        "content": "<p>We believe good design should be accessible. Every product starts with a story worth telling.</p>"
+      }
+    },
+    "newsletter": {
+      "type": "newsletter",
+      "settings": {
+        "heading": "Stay in the loop",
+        "text": "Get updates, drops and more."
+      }
+    }
+  },
+  "order": ["hero", "featured", "iwt", "rich", "newsletter"]
+}

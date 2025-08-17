@@ -1,0 +1,35 @@
+<section class="section section--newsletter">
+  <div class="container" style="max-width:720px; text-align:center;">
+    {% if section.settings.heading != blank %}
+      <h2 class="section__title">{{ section.settings.heading }}</h2>
+    {% endif %}
+    {% if section.settings.text != blank %}
+      <p class="section__subtitle">{{ section.settings.text }}</p>
+    {% endif %}
+    {% form 'customer' %}
+      <input type="hidden" name="contact[tags]" value="newsletter">
+      <div style="display:flex; gap:8px; justify-content:center;">
+        <input type="email" name="contact[email]" required placeholder="you@example.com" style="flex:1; min-width:240px; padding:12px 14px; border-radius: var(--radius); border: 1px solid rgba(0,0,0,.15);">
+        <button class="btn" type="submit">{{ section.settings.button_label | default: 'Subscribe' }}</button>
+      </div>
+      {% if form.posted_successfully? %}
+        <p style="margin-top:10px; color: green;">Thanks for subscribing!</p>
+      {% elsif form.errors %}
+        <p style="margin-top:10px; color: #b91c1c;">{{ form.errors | default_errors }}</p>
+      {% endif %}
+    {% endform %}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Newsletter",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Join our newsletter" },
+    { "type": "textarea", "id": "text", "label": "Subheading", "default": "Be the first to know about new collections and exclusive offers." },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "Subscribe" }
+  ],
+  "blocks": [],
+  "max_blocks": 0
+}
+{% endschema %}

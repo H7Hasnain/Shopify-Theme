@@ -1,0 +1,52 @@
+<section class="section section--cart">
+  <div class="container">
+    <h1 class="section__title">Your cart</h1>
+    {% if cart.item_count > 0 %}
+      <form action="/cart" method="post" novalidate>
+        <table style="width:100%; border-collapse: collapse;">
+          <thead>
+            <tr style="text-align:left; border-bottom:1px solid rgba(0,0,0,.08);">
+              <th>Product</th>
+              <th>Price</th>
+              <th>Qty</th>
+              <th>Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in cart.items %}
+              <tr style="border-bottom:1px solid rgba(0,0,0,.04);">
+                <td style="padding:10px 6px;">
+                  <a href="{{ item.url }}" style="display:flex; align-items:center; gap:12px;">
+                    {% if item.image %}
+                      {{ item.image | image_url: width: 160 | image_tag: loading: 'lazy', widths: '80,120,160', alt: item.title, style: 'width:64px; height:auto; border-radius:6px;' }}
+                    {% endif %}
+                    <span>{{ item.product.title }}</span>
+                    {% unless item.variant.title contains 'Default' %}
+                      <small style="opacity:.7;"> — {{ item.variant.title }}</small>
+                    {% endunless %}
+                  </a>
+                </td>
+                <td>{{ item.final_price | money }}</td>
+                <td>
+                  <input name="updates[]" value="{{ item.quantity }}" type="number" min="0" style="width:70px; padding:6px 8px;" />
+                </td>
+                <td>{{ item.final_line_price | money }}</td>
+                <td>
+                  <a href="/cart/change?line={{ forloop.index }}&quantity=0">{{ 'general.remove' | t }}</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top: 16px; align-items:center;">
+          <strong>{{ 'general.subtotal' | t }}: {{ cart.total_price | money }}</strong>
+          <button class="btn" name="update" value="update">Update</button>
+          <button class="btn" name="checkout">{{ 'general.checkout' | t }}</button>
+        </div>
+      </form>
+    {% else %}
+      <p>Your cart is empty.</p>
+    {% endif %}
+  </div>
+</section>

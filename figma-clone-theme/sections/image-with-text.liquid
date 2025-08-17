@@ -1,0 +1,79 @@
+<section class="section section--image-with-text">
+  <div class="container">
+    <div class="grid grid--2" style="align-items: center;">
+      {% if section.settings.image_position == 'left' %}
+        <div>
+          {% if section.settings.image %}
+            {{ section.settings.image | image_url: width: 1600 | image_tag: sizes: '(max-width: 960px) 100vw, 50vw', class: 'card' }}
+          {% endif %}
+        </div>
+        <div>
+          {% if section.settings.subheading != blank %}
+            <p class="section__subtitle">{{ section.settings.subheading }}</p>
+          {% endif %}
+          {% if section.settings.heading != blank %}
+            <h2 class="section__title">{{ section.settings.heading }}</h2>
+          {% endif %}
+          {% if section.settings.text != blank %}
+            <div class="rte">{{ section.settings.text }}</div>
+          {% endif %}
+          <div style="margin-top: 16px;">
+            {% if section.settings.primary_label and section.settings.primary_link %}
+              <a class="btn" href="{{ section.settings.primary_link }}">{{ section.settings.primary_label }}</a>
+            {% endif %}
+            {% if section.settings.secondary_label and section.settings.secondary_link %}
+              <a class="btn btn--ghost" href="{{ section.settings.secondary_link }}">{{ section.settings.secondary_label }}</a>
+            {% endif %}
+          </div>
+        </div>
+      {% else %}
+        <div>
+          {% if section.settings.subheading != blank %}
+            <p class="section__subtitle">{{ section.settings.subheading }}</p>
+          {% endif %}
+          {% if section.settings.heading != blank %}
+            <h2 class="section__title">{{ section.settings.heading }}</h2>
+          {% endif %}
+          {% if section.settings.text != blank %}
+            <div class="rte">{{ section.settings.text }}</div>
+          {% endif %}
+          <div style="margin-top: 16px;">
+            {% if section.settings.primary_label and section.settings.primary_link %}
+              <a class="btn" href="{{ section.settings.primary_link }}">{{ section.settings.primary_label }}</a>
+            {% endif %}
+            {% if section.settings.secondary_label and section.settings.secondary_link %}
+              <a class="btn btn--ghost" href="{{ section.settings.secondary_link }}">{{ section.settings.secondary_label }}</a>
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          {% if section.settings.image %}
+            {{ section.settings.image | image_url: width: 1600 | image_tag: sizes: '(max-width: 960px) 100vw, 50vw', class: 'card' }}
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Image with text",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    { "type": "select", "id": "image_position", "label": "Image position", "options": [
+      {"value": "left", "label": "Left"},
+      {"value": "right", "label": "Right"}
+    ], "default": "left" },
+    { "type": "text", "id": "subheading", "label": "Eyebrow" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Image with text" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "text", "id": "primary_label", "label": "Primary button label" },
+    { "type": "url", "id": "primary_link", "label": "Primary button link" },
+    { "type": "text", "id": "secondary_label", "label": "Secondary button label" },
+    { "type": "url", "id": "secondary_link", "label": "Secondary button link" }
+  ],
+  "blocks": [],
+  "max_blocks": 0
+}
+{% endschema %}

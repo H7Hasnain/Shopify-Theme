@@ -1,0 +1,59 @@
+{% assign logo = section.settings.logo %}
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="site-header__brand" href="{{ routes.root_url }}" aria-label="{{ shop.name }}">
+      {% if logo != blank %}
+        {{ logo | image_url: width: section.settings.logo_width | image_tag: widths: '120,200,300,400', alt: shop.name, class: 'site-header__logo' }}
+      {% else %}
+        <strong>{{ shop.name }}</strong>
+      {% endif %}
+    </a>
+
+    <button class="site-header__toggle" aria-label="{{ 'general.menu' | t }}" data-toggle="#main-nav" style="display:none; background:none; border:0; padding:8px;">
+      {% render 'icons', name: 'menu' %}
+    </button>
+
+    <nav id="main-nav" class="site-header__nav" role="navigation" aria-label="{{ 'general.navigation' | t }}" data-open="false">
+      {% if section.settings.menu != blank %}
+        <ul>
+          {% for link in section.settings.menu.links %}
+            <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </nav>
+
+    <div class="site-header__actions">
+      {% if section.settings.show_search %}
+        <a href="{{ routes.search_url }}" aria-label="{{ 'general.search' | t }}">🔍</a>
+      {% endif %}
+      {% if shop.customer_accounts_enabled and section.settings.show_account %}
+        {% if customer %}
+          <a href="{{ routes.account_url }}" aria-label="{{ 'sections.header.account' | t }}">👤</a>
+        {% else %}
+          <a href="{{ routes.account_login_url }}" aria-label="{{ 'sections.header.account' | t }}">👤</a>
+        {% endif %}
+      {% endif %}
+      {% if section.settings.show_cart %}
+        <a href="{{ routes.cart_url }}" aria-label="{{ 'sections.header.cart' | t }}">🛒 {{ cart.item_count }}</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+{% schema %}
+{
+  "name": "Header",
+  "settings": [
+    { "type": "image_picker", "id": "logo", "label": "Logo" },
+    { "type": "range", "id": "logo_width", "label": "Logo width", "unit": "px", "min": 60, "max": 260, "step": 10, "default": 140 },
+    { "type": "link_list", "id": "menu", "label": "Main menu" },
+    { "type": "checkbox", "id": "show_search", "label": "Show search", "default": true },
+    { "type": "checkbox", "id": "show_account", "label": "Show account", "default": true },
+    { "type": "checkbox", "id": "show_cart", "label": "Show cart", "default": true }
+  ],
+  "blocks": [],
+  "max_blocks": 0,
+  "tag": "header"
+}
+{% endschema %}
