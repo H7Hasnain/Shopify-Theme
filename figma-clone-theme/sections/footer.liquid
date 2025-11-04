@@ -1,0 +1,63 @@
+<footer class="footer section">
+  <div class="container">
+    <div class="footer__top">
+      {% for block in section.blocks %}
+        <div class="footer__block" {{ block.shopify_attributes }}>
+          {% case block.type %}
+          {% when 'menu' %}
+            {% if block.settings.title != blank %}<h4 class="section__title">{{ block.settings.title }}</h4>{% endif %}
+            {% if block.settings.menu != blank %}
+              <ul>
+                {% for link in block.settings.menu.links %}
+                  <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          {% when 'text' %}
+            {% if block.settings.title != blank %}<h4 class="section__title">{{ block.settings.title }}</h4>{% endif %}
+            <div class="rte">{{ block.settings.content }}</div>
+          {% endcase %}
+        </div>
+      {% endfor %}
+    </div>
+    <div class="footer__bottom">
+      <div>© {{ 'now' | date: '%Y' }} {{ shop.name }} — {{ 'sections.footer.copyright' | t }}</div>
+      {% if section.settings.show_payment_icons %}
+        <div class="payment-icons" aria-label="Payment methods">
+          {% for type in shop.enabled_payment_types %}
+            {{ type | payment_type_svg_tag }}
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Footer",
+  "settings": [
+    { "type": "checkbox", "id": "show_payment_icons", "label": "Show payment icons", "default": false }
+  ],
+  "blocks": [
+    {
+      "type": "menu",
+      "name": "Menu",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Title" },
+        { "type": "link_list", "id": "menu", "label": "Menu" }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "Text",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Title" },
+        { "type": "richtext", "id": "content", "label": "Content", "default": "<p>Add a short description or contact info here.</p>" }
+      ]
+    }
+  ],
+  "max_blocks": 6,
+  "tag": "footer"
+}
+{% endschema %}

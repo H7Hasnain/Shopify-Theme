@@ -1,0 +1,33 @@
+<section class="section section--faq">
+  <div class="container" style="max-width:880px;">
+    {% if section.settings.heading %}<h2 class="section__title">{{ section.settings.heading }}</h2>{% endif %}
+    <div>
+      {% for block in section.blocks %}
+        <details class="card" style="margin-bottom:10px;">
+          <summary style="cursor:pointer; padding:12px 14px;">{{ block.settings.question }}</summary>
+          <div class="card__body">{{ block.settings.answer }}</div>
+        </details>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "FAQ",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Frequently asked questions" }
+  ],
+  "blocks": [
+    {
+      "type": "qa",
+      "name": "Question",
+      "settings": [
+        { "type": "text", "id": "question", "label": "Question", "default": "What is your return policy?" },
+        { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>We accept returns within 30 days of delivery.</p>" }
+      ]
+    }
+  ],
+  "max_blocks": 8
+}
+{% endschema %}

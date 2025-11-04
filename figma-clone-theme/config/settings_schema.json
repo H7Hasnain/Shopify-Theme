@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Theme settings",
+    "settings": [
+      { "type": "color", "id": "color_background", "label": "Background color", "default": "#ffffff" },
+      { "type": "color", "id": "color_text", "label": "Text color", "default": "#111111" },
+      { "type": "color", "id": "color_primary", "label": "Primary color", "default": "#111827" },
+      { "type": "color", "id": "color_secondary", "label": "Secondary color", "default": "#6b7280" },
+      { "type": "font_picker", "id": "type_base_font", "label": "Base font", "default": "system-ui" },
+      { "type": "font_picker", "id": "type_heading_font", "label": "Heading font", "default": "system-ui" },
+      { "type": "range", "id": "container_max_width", "min": 960, "max": 1600, "step": 20, "unit": "px", "label": "Container max width", "default": 1200 }
+    ]
+  }
+]
