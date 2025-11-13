@@ -1,17 +1,23 @@
-name: Run Script
+name: Run Puppeteer Scraper
 
 on:
   workflow_dispatch:
     inputs:
       url:
-        description: 'Website URL'
+        description: 'Website URL to scrape'
         required: true
+        default: 'https://example.com'
+      output_file:
+        description: 'Output HTML filename'
+        required: false
+        default: 'scraped_website.html'
 
 jobs:
-  run-script:
+  scrape:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Setup Node.js
@@ -19,8 +25,20 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Run script
-        id: run_script
+      - name: Install dependencies
         run: |
-          node run_script.js "${{ github.event.inputs.url }}" > output.txt
-          echo "html=$(cat output.txt | jq -Rs .)" >> $GITHUB_OUTPUT
+          npm install puppeteer fs path https http readline
+
+      - name: Run Puppeteer Scraper
+        env:
+          URL_TO_SCRAPE: ${{ github.event.inputs.url }}
+          OUTPUT_FILE: ${{ github.event.inputs.output_file }}
+        run: |
+          echo "Running scraper for URL: $URL_TO_SCRAPE"
+          node scraper.js <<< "$URL_TO_SCRAPE"$'\n'"$OUTPUT_FILE"
+
+      - name: Upload HTML artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: scraped-html
+          path: ${{ github.event.inputs.output_file }}
