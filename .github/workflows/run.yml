@@ -30,8 +30,11 @@ jobs:
 
       - name: Run Puppeteer Scraper
         run: |
-          echo "Running scraper for URL: ${{ github.event.inputs.url }}"
+          echo "🚀 Running scraper for URL: ${{ github.event.inputs.url }}"
           node scraper.js "${{ github.event.inputs.url }}" "${{ github.event.inputs.output_file }}"
+
+      - name: List output files (debug)
+        run: ls -la
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
