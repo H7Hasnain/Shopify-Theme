@@ -1,11 +1,8 @@
-name: Run Puppeteer Script
+name: Run Puppeteer Script from n8n
 
 on:
-  workflow_dispatch:
   repository_dispatch:
-  push:
-    branches:
-      - main
+    types: [run_puppeteer]
 
 jobs:
   run-puppeteer:
@@ -45,5 +42,5 @@ jobs:
 
       - name: Run Puppeteer script
         env:
-          URL: ${{ github.event.client_payload.url }}
+          TARGET_URL: ${{ github.event.client_payload.url }}
         run: node N8n.js
