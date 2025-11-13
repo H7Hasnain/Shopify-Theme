@@ -25,17 +25,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: |
-          npm install puppeteer fs path https http readline
+      - name: Install Puppeteer
+        run: npm install puppeteer
 
       - name: Run Puppeteer Scraper
-        env:
-          URL_TO_SCRAPE: ${{ github.event.inputs.url }}
-          OUTPUT_FILE: ${{ github.event.inputs.output_file }}
         run: |
-          echo "Running scraper for URL: $URL_TO_SCRAPE"
-          node scraper.js <<< "$URL_TO_SCRAPE"$'\n'"$OUTPUT_FILE"
+          echo "Running scraper for URL: ${{ github.event.inputs.url }}"
+          node scraper.js "${{ github.event.inputs.url }}" "${{ github.event.inputs.output_file }}"
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
