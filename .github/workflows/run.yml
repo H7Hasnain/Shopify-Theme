@@ -38,7 +38,7 @@ jobs:
           node scraper.js <<< "$URL_TO_SCRAPE"$'\n'"$OUTPUT_FILE"
 
       - name: Upload HTML artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: scraped-html
           path: ${{ github.event.inputs.output_file }}
