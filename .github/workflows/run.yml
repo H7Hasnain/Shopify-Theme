@@ -1,4 +1,4 @@
-name: Run N8n Script
+name: Run N8n Script with Puppeteer
 
 on:
   workflow_dispatch:
@@ -21,19 +21,45 @@ jobs:
         with:
           node-version: 18
 
+      # Install dependencies
       - name: Install dependencies
         run: |
           npm ci || npm install
 
-      - name: Run N8n.js script
+      # ✅ Install dependencies Puppeteer needs (Chrome libs)
+      - name: Install Chrome dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 \
+            libatk-bridge2.0-0 \
+            libx11-xcb1 \
+            libxcomposite1 \
+            libxcursor1 \
+            libxdamage1 \
+            libxi6 \
+            libxtst6 \
+            libnss3 \
+            libcups2 \
+            libxrandr2 \
+            libasound2 \
+            libatk1.0-0 \
+            libpangocairo-1.0-0 \
+            libpango-1.0-0 \
+            libgtk-3-0 \
+            libgbm-dev
+
+      # ✅ Run Puppeteer script with no-sandbox (required in CI)
+      - name: Run Puppeteer Script (N8n.js)
         env:
           TARGET_URL: ${{ github.event.inputs.target_url }}
+          PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "false"
         run: |
-          echo "Running N8n.js with URL: $TARGET_URL"
-          node N8n.js "$TARGET_URL"
+          echo "Running Puppeteer script for: $TARGET_URL"
+          node N8n.js "$TARGET_URL" --no-sandbox
 
-      # Optional: save logs or output
-      - name: Upload output folder (if your script generates files)
+      # Optional: Upload results if your script saves anything
+      - name: Upload output
         if: success()
         uses: actions/upload-artifact@v4
         with:
