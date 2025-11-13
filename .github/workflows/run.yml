@@ -1,12 +1,12 @@
-name: Run Puppeteer Scraper
+name: Run Website Scraper
 
 on:
   workflow_dispatch:
     inputs:
-      url:
-        description: 'Website URL to scrape'
+      target_url:
+        description: "Enter the website URL to scrape"
         required: true
-        default: 'https://example.com'
+        default: "https://example.com"
 
 jobs:
   scrape:
