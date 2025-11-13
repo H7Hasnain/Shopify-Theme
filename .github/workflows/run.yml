@@ -1,4 +1,4 @@
-name: Run Puppeteer Scraper
+name: Scrape Website
 
 on:
   workflow_dispatch:
@@ -6,38 +6,45 @@ on:
       url:
         description: 'Website URL to scrape'
         required: true
-        default: 'https://example.com'
-      output_file:
-        description: 'Output HTML filename'
-        required: false
-        default: 'scraped_website.html'
+        type: string
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
 
-      - name: Install Puppeteer
-        run: npm install puppeteer
-
-      - name: Run Puppeteer Scraper
+      - name: Install dependencies
         run: |
-          echo "🚀 Running scraper for URL: ${{ github.event.inputs.url }}"
-          node scraper.js "${{ github.event.inputs.url }}" "${{ github.event.inputs.output_file }}"
+          npm install puppeteer
 
-      - name: List output files (debug)
-        run: ls -la
+      - name: Run scraper
+        id: scrape
+        run: |
+          echo "Starting scraper..."
+          node scraper.js "${{ inputs.url }}" > output.html 2> scraper.log
+          
+          # Read the output
+          SCRAPED_HTML=$(cat output.html)
+          
+          # Save to output (escape for JSON)
+          echo "html<<EOF" >> $GITHUB_OUTPUT
+          echo "$SCRAPED_HTML" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Show logs
+          cat scraper.log
 
-      - name: Upload HTML artifact
+      - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: scraped-html
-          path: ${{ github.event.inputs.output_file }}
+          name: scraped-website
+          path: output.html
+          retention-days: 1
