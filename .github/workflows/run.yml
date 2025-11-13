@@ -1,6 +1,11 @@
-name: Run Puppeteer Script from n8n
+name: Run Puppeteer Script
 
 on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Target URL to scrape"
+        required: true
   repository_dispatch:
     types: [run_puppeteer]
 
@@ -42,5 +47,5 @@ jobs:
 
       - name: Run Puppeteer script
         env:
-          TARGET_URL: ${{ github.event.client_payload.url }}
+          TARGET_URL: ${{ github.event.inputs.url || github.event.client_payload.url }}
         run: node N8n.js
