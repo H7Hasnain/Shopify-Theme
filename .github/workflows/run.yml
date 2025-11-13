@@ -31,18 +31,27 @@ jobs:
         run: |
           echo "🌐 Input URL: $TARGET_URL"
 
-          # Extract main name from URL (remove http, https, www, .com, etc.)
+          # Extract main name (remove https, www, .com, etc.)
           MAIN_NAME=$(echo "$TARGET_URL" | sed -E 's~https?://~~; s~www\.~~; s~\.com.*~~; s~/.*~~; s/[^a-zA-Z0-9_-]//g')
           OUTPUT_FILE="${MAIN_NAME}_scraped.html"
 
           echo "📝 Extracted name: $MAIN_NAME"
           echo "📄 Output file: $OUTPUT_FILE"
 
-          # Run the scraper and simulate inputs for readline
-          echo -e "$TARGET_URL\n$OUTPUT_FILE\n" | node scraper.js
+          # Run scraper and feed both answers using a here-string
+          node scraper.js <<EOF
+$TARGET_URL
+$OUTPUT_FILE
+EOF
+
+          echo "✅ Scraper finished."
+          ls -lh || true
 
       - name: Upload scraped HTML
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: scraped-html
-          path: ./*_scraped.html
+          path: |
+            *_scraped.html
+            scraped_website.html
