@@ -6,13 +6,10 @@ on:
       url:
         description: "Target URL to scrape"
         required: true
-  repository_dispatch:
-    types: [run_puppeteer]
 
 jobs:
   run-puppeteer:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -43,9 +40,10 @@ jobs:
             fonts-liberation
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci || npm install
 
       - name: Run Puppeteer script
         env:
-          TARGET_URL: ${{ github.event.inputs.url || github.event.client_payload.url }}
-        run: node N8n.js
+          TARGET_URL: ${{ github.event.inputs.url }}
+        run: |
+          node N8n.js "$TARGET_URL"
