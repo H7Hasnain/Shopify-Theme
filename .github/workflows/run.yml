@@ -1,12 +1,16 @@
-name: Run Website Scraper
+name: Run Puppeteer Scraper
 
 on:
   workflow_dispatch:
     inputs:
-      target_url:
-        description: "Enter the website URL to scrape"
+      url:
+        description: 'Website URL to scrape'
         required: true
-        default: "https://example.com"
+        default: 'https://example.com'
+      output_file:
+        description: 'Output HTML filename'
+        required: false
+        default: 'scraped_website.html'
 
 jobs:
   scrape:
@@ -14,10 +18,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: '20'
 
@@ -25,33 +29,16 @@ jobs:
         run: |
           npm install puppeteer fs path https http readline
 
-      - name: Prepare filename and run scraper
+      - name: Run Puppeteer Scraper
         env:
-          TARGET_URL: ${{ github.event.inputs.url }}
+          URL_TO_SCRAPE: ${{ github.event.inputs.url }}
+          OUTPUT_FILE: ${{ github.event.inputs.output_file }}
         run: |
-          echo "🌐 Input URL: $TARGET_URL"
+          echo "Running scraper for URL: $URL_TO_SCRAPE"
+          node scraper.js <<< "$URL_TO_SCRAPE"$'\n'"$OUTPUT_FILE"
 
-          # Extract main name (remove https, www, .com, etc.)
-          MAIN_NAME=$(echo "$TARGET_URL" | sed -E 's~https?://~~; s~www\.~~; s~\.com.*~~; s~/.*~~; s/[^a-zA-Z0-9_-]//g')
-          OUTPUT_FILE="${MAIN_NAME}_scraped.html"
-
-          echo "📝 Extracted name: $MAIN_NAME"
-          echo "📄 Output file: $OUTPUT_FILE"
-
-          # Run scraper and feed both answers using a here-string
-          node scraper.js <<EOF
-$TARGET_URL
-$OUTPUT_FILE
-EOF
-
-          echo "✅ Scraper finished."
-          ls -lh || true
-
-      - name: Upload scraped HTML
-        if: success()
+      - name: Upload HTML artifact
         uses: actions/upload-artifact@v4
         with:
           name: scraped-html
-          path: |
-            *_scraped.html
-            scraped_website.html
+          path: ${{ github.event.inputs.output_file }}
