@@ -1,5 +1,4 @@
 name: Scrape Website
-
 on:
   workflow_dispatch:
     inputs:
@@ -7,7 +6,6 @@ on:
         description: 'Website URL to scrape'
         required: true
         type: string
-
 jobs:
   scrape:
     runs-on: ubuntu-latest
@@ -15,16 +13,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-
       - name: Install dependencies
         run: |
           npm install puppeteer
-
       - name: Run scraper
         id: scrape
         run: |
@@ -41,7 +36,22 @@ jobs:
           
           # Show logs
           cat scraper.log
-
+      - name: Commit and push HTML file
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create a results directory if it doesn't exist
+          mkdir -p scraped-results
+          
+          # Copy the HTML file with timestamp
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          cp output.html "scraped-results/scraped_${TIMESTAMP}.html"
+          
+          # Add and commit
+          git add scraped-results/
+          git commit -m "Add scraped website from ${{ inputs.url }} at ${TIMESTAMP}" || echo "No changes to commit"
+          git push || echo "Nothing to push"
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
