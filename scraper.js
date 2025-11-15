@@ -1,13 +1,20 @@
-// scraper.js - Ultra-accurate website scraper with perfect CSS/JS/Images/Fonts
+// scraper.js - Bulletproof website scraper with perfect accuracy
 const puppeteer = require('puppeteer');
 const https = require('https');
 const http = require('http');
 const { URL } = require('url');
 
-class UltraAccurateWebsiteScraper {
+class PerfectWebsiteScraper {
     constructor(targetUrl) {
         this.targetUrl = targetUrl;
         this.baseUrl = new URL(targetUrl);
+        this.allResources = {
+            css: [],
+            js: [],
+            images: [],
+            fonts: [],
+            icons: []
+        };
     }
 
     sleep(ms) {
@@ -18,14 +25,16 @@ class UltraAccurateWebsiteScraper {
         console.error(message);
     }
 
-    async fetchResource(url, retries = 3) {
+    async fetchResource(url, retries = 5) {
         for (let attempt = 0; attempt < retries; attempt++) {
             try {
                 const content = await this._fetchAttempt(url);
-                if (content) return content;
-                await this.sleep(1500 * (attempt + 1));
+                if (content !== null && content !== undefined) {
+                    return content;
+                }
+                await this.sleep(2000 * (attempt + 1));
             } catch (e) {
-                if (attempt === retries - 1) return '';
+                this.log(`   Retry ${attempt + 1}/${retries} for ${url.substring(url.length - 40)}`);
             }
         }
         return '';
@@ -39,15 +48,16 @@ class UltraAccurateWebsiteScraper {
 
                 const request = protocol.get(url, {
                     headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
                         'Accept': '*/*',
                         'Referer': this.targetUrl,
-                        'Accept-Encoding': 'gzip, deflate, br',
                         'Accept-Language': 'en-US,en;q=0.9',
-                        'Cache-Control': 'no-cache'
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive'
                     },
-                    timeout: 45000
+                    timeout: 60000
                 }, (response) => {
+                    // Handle redirects
                     if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
                         const redirectUrl = new URL(response.headers.location, url).href;
                         this.fetchResource(redirectUrl).then(resolve);
@@ -61,32 +71,38 @@ class UltraAccurateWebsiteScraper {
                         response.on('end', () => resolve(data));
                         response.on('error', () => resolve(''));
                     } else {
+                        this.log(`   HTTP ${response.statusCode} for ${url}`);
                         resolve('');
                     }
                 });
 
-                request.on('error', () => resolve(''));
+                request.on('error', (err) => {
+                    this.log(`   Network error: ${err.message}`);
+                    resolve('');
+                });
+                
                 request.on('timeout', () => {
                     request.destroy();
                     resolve('');
                 });
-            } catch {
+            } catch (err) {
+                this.log(`   Fetch error: ${err.message}`);
                 resolve('');
             }
         });
     }
 
     async scrape() {
-        this.log('╔═══════════════════════════════════════════╗');
-        this.log('║   🎯 ULTRA-ACCURATE SCRAPER v9.0         ║');
-        this.log('║   Perfect images, fonts, and styling!   ║');
-        this.log('╚═══════════════════════════════════════════╝\n');
+        this.log('╔════════════════════════════════════════════╗');
+        this.log('║   🎯 BULLETPROOF SCRAPER v10.0            ║');
+        this.log('║   Perfect CSS, JS, Images, Icons & Fonts! ║');
+        this.log('╚════════════════════════════════════════════╝\n');
         this.log(`🌐 Target: ${this.targetUrl}\n`);
 
         let browser;
         
         try {
-            this.log('🔧 Launching browser with full features...');
+            this.log('🔧 Launching browser with maximum compatibility...');
             browser = await puppeteer.launch({
                 headless: 'new',
                 args: [
@@ -96,48 +112,49 @@ class UltraAccurateWebsiteScraper {
                     '--disable-features=IsolateOrigins,site-per-process',
                     '--disable-dev-shm-usage',
                     '--disable-blink-features=AutomationControlled',
-                    '--font-render-hinting=none',
-                    '--enable-font-antialiasing',
-                    '--force-color-profile=srgb',
-                    '--disable-accelerated-2d-canvas',
+                    '--disable-infobars',
+                    '--window-size=1920,1080',
+                    '--start-maximized',
+                    '--disable-extensions',
+                    '--no-first-run',
+                    '--no-default-browser-check',
+                    '--disable-software-rasterizer',
                     '--disable-gpu'
-                ],
-                defaultViewport: null
+                ]
             });
 
             const page = await browser.newPage();
             
-            // Set realistic viewport
             await page.setViewport({ 
                 width: 1920, 
                 height: 1080,
                 deviceScaleFactor: 1
             });
             
-            // Set comprehensive headers
-            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
             
             await page.setExtraHTTPHeaders({
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Accept-Encoding': 'gzip, deflate, br',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none'
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
             });
 
-            // Enable JavaScript
             await page.setJavaScriptEnabled(true);
+            await page.setCacheEnabled(false);
 
-            this.log('📄 Loading page with ALL resources...\n');
+            this.log('📄 Loading page with FULL resource waiting...\n');
 
-            // Load with comprehensive waiting
+            // Try maximum compatibility loading
             let loaded = false;
+            let finalStrategy = '';
+            
             const strategies = [
-                { name: 'Network Idle 0 (Complete)', waitUntil: 'networkidle0', timeout: 120000 },
-                { name: 'Network Idle 2 (Most Complete)', waitUntil: 'networkidle2', timeout: 90000 },
-                { name: 'Full Load', waitUntil: 'load', timeout: 60000 },
-                { name: 'DOM Ready', waitUntil: 'domcontentloaded', timeout: 45000 }
+                { name: 'Network Idle 0 (Wait for ALL resources)', waitUntil: 'networkidle0', timeout: 180000 },
+                { name: 'Network Idle 2 (Wait for most resources)', waitUntil: 'networkidle2', timeout: 120000 },
+                { name: 'Load Event (Wait for page load)', waitUntil: 'load', timeout: 90000 },
+                { name: 'DOM Content Loaded (Minimum)', waitUntil: 'domcontentloaded', timeout: 60000 }
             ];
 
             for (const strategy of strategies) {
@@ -148,159 +165,170 @@ class UltraAccurateWebsiteScraper {
                         waitUntil: strategy.waitUntil, 
                         timeout: strategy.timeout 
                     });
-                    this.log(`   ✓ Loaded with ${strategy.name}\n`);
+                    this.log(`   ✓ SUCCESS with ${strategy.name}\n`);
                     loaded = true;
+                    finalStrategy = strategy.name;
                 } catch (e) {
-                    this.log(`   ✗ ${strategy.name} timeout, trying next...`);
+                    this.log(`   ✗ Failed: ${e.message}`);
                 }
             }
 
             if (!loaded) {
-                throw new Error('Failed to load page with any strategy');
+                throw new Error('Could not load page with any strategy');
             }
 
-            // Extended wait for all dynamic content
-            this.log('⏳ Waiting for all dynamic content (15 seconds)...');
-            await this.sleep(15000);
+            // CRITICAL: Long wait for all dynamic content
+            this.log('⏳ Waiting for dynamic content (20 seconds)...');
+            await this.sleep(20000);
 
-            // Multiple scroll passes to ensure ALL content loads
-            this.log('📜 First scroll pass - loading lazy images...');
-            await page.evaluate(async () => {
-                await new Promise((resolve) => {
-                    let scrolls = 0;
-                    const maxScrolls = 60;
-                    const interval = setInterval(() => {
-                        window.scrollBy(0, 100);
-                        scrolls++;
-                        if (scrolls >= maxScrolls || window.scrollY + window.innerHeight >= document.body.scrollHeight) {
-                            clearInterval(interval);
-                            resolve();
-                        }
-                    }, 100);
-                });
-            });
-            
+            // Multiple extensive scroll passes
+            this.log('📜 Scroll Pass 1: Loading lazy content...');
+            for (let i = 0; i < 80; i++) {
+                await page.evaluate(() => window.scrollBy(0, 100));
+                await this.sleep(100);
+            }
             await this.sleep(3000);
-            
-            this.log('📜 Second scroll pass - ensuring all images loaded...');
+
+            this.log('📜 Scroll Pass 2: Bottom to top...');
             await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-            await this.sleep(2000);
+            await this.sleep(3000);
             await page.evaluate(() => window.scrollTo(0, 0));
             await this.sleep(3000);
 
-            // Force lazy images to load
-            this.log('🖼️  Force loading all images...');
+            this.log('📜 Scroll Pass 3: Middle sections...');
+            for (let i = 0; i < 40; i++) {
+                await page.evaluate((i) => {
+                    window.scrollTo(0, (document.body.scrollHeight / 40) * i);
+                }, i);
+                await this.sleep(150);
+            }
+            await this.sleep(3000);
+
+            // Force load ALL images and icons
+            this.log('🖼️  Force loading images and icons...');
             await page.evaluate(() => {
+                // Force all lazy images
                 document.querySelectorAll('img').forEach(img => {
-                    // Trigger lazy loading
-                    if (img.loading === 'lazy') {
-                        img.loading = 'eager';
-                    }
-                    
-                    // Load data-src images
-                    if (img.dataset.src && !img.src) {
-                        img.src = img.dataset.src;
-                    }
-                    if (img.dataset.lazySrc && !img.src) {
-                        img.src = img.dataset.lazySrc;
-                    }
-                    
-                    // Force decode
-                    if (img.complete && img.decode) {
-                        img.decode().catch(() => {});
+                    if (img.loading === 'lazy') img.loading = 'eager';
+                    if (img.dataset.src) img.src = img.dataset.src;
+                    if (img.dataset.lazySrc) img.src = img.dataset.lazySrc;
+                    if (img.dataset.original) img.src = img.dataset.original;
+                    if (img.dataset.lazyLoad) img.src = img.dataset.lazyLoad;
+                    img.removeAttribute('loading');
+                });
+
+                // Force SVG icons to load
+                document.querySelectorAll('svg use').forEach(use => {
+                    if (use.href && use.href.baseVal) {
+                        const href = use.href.baseVal;
+                        use.setAttribute('xlink:href', href);
                     }
                 });
-            });
 
+                // Trigger icon fonts
+                document.querySelectorAll('[class*="icon"], [class*="fa-"], i').forEach(el => {
+                    el.style.fontFamily = window.getComputedStyle(el).fontFamily;
+                });
+            });
             await this.sleep(5000);
 
             // Trigger ALL interactive elements
-            this.log('🔍 Revealing hidden content...');
+            this.log('🔍 Revealing ALL hidden content...');
             await page.evaluate(() => {
-                // Expand accordions, tabs, dropdowns
-                document.querySelectorAll('[role="tab"], .tab, .accordion-button, [data-toggle], [aria-expanded="false"], .collapsed').forEach(el => {
-                    try { 
-                        el.click(); 
-                        el.dispatchEvent(new Event('click', { bubbles: true }));
+                // Expand everything
+                document.querySelectorAll('[role="tab"], .tab, .accordion, .accordion-button, .collapse, [data-toggle], [data-bs-toggle], [aria-expanded="false"]').forEach(el => {
+                    try {
+                        el.click();
+                        el.dispatchEvent(new Event('click'));
+                        if (el.getAttribute('aria-expanded') === 'false') {
+                            el.setAttribute('aria-expanded', 'true');
+                        }
                     } catch (e) {}
                 });
-                
-                // Trigger hover states
-                document.querySelectorAll('[data-hover], .dropdown, .menu-item, .has-dropdown').forEach(el => {
+
+                // Show dropdowns
+                document.querySelectorAll('.dropdown, [data-hover], .menu-item, .has-dropdown, .dropdown-toggle').forEach(el => {
                     try {
-                        el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
-                        el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
+                        el.classList.add('show', 'open', 'active');
+                        el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+                        el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
                     } catch (e) {}
+                });
+
+                // Show hidden elements
+                document.querySelectorAll('[hidden], .hidden, .d-none').forEach(el => {
+                    el.removeAttribute('hidden');
+                    el.style.display = '';
+                    el.classList.remove('hidden', 'd-none');
                 });
             });
-
             await this.sleep(3000);
 
-            this.log('✅ Page fully loaded with all content!\n');
+            this.log('✅ Page FULLY loaded with ALL content!\n');
 
-            // Extract ALL resources comprehensively
-            this.log('📋 Extracting ALL resources (CSS, JS, Images, Fonts)...\n');
+            // EXTRACT EVERYTHING
+            this.log('📋 Step 1: Extracting ALL resource URLs...\n');
             
-            const resources = await page.evaluate((baseOrigin) => {
-                const result = {
-                    cssUrls: new Set(),
-                    jsUrls: new Set(),
-                    imageUrls: new Set(),
-                    fontUrls: new Set()
+            const resourceUrls = await page.evaluate(() => {
+                const urls = {
+                    css: new Set(),
+                    js: new Set(),
+                    images: new Set(),
+                    fonts: new Set(),
+                    svgs: new Set()
                 };
 
-                // CSS files
-                document.querySelectorAll('link[rel="stylesheet"], link[rel="preload"][as="style"], link[href*=".css"]').forEach(link => {
-                    if (link.href && !link.href.startsWith('data:') && !link.href.startsWith('blob:')) {
-                        result.cssUrls.add(link.href);
+                // CSS - ALL possible sources
+                document.querySelectorAll('link[rel="stylesheet"], link[rel="preload"][as="style"], link[href*=".css"], style[data-href]').forEach(el => {
+                    const href = el.href || el.dataset.href;
+                    if (href && !href.startsWith('data:') && !href.startsWith('blob:')) {
+                        urls.css.add(href);
                     }
                 });
 
-                // JS files
-                document.querySelectorAll('script[src]').forEach(script => {
-                    if (script.src && !script.src.startsWith('data:') && !script.src.startsWith('blob:')) {
-                        result.jsUrls.add(script.src);
+                // JS - ALL scripts
+                document.querySelectorAll('script[src], script[data-src]').forEach(el => {
+                    const src = el.src || el.dataset.src;
+                    if (src && !src.startsWith('data:') && !src.startsWith('blob:')) {
+                        urls.js.add(src);
                     }
                 });
 
-                // ALL image sources
-                document.querySelectorAll('img, picture source, [style*="background"]').forEach(el => {
-                    // Regular img src
+                // Images - EVERY possible source
+                document.querySelectorAll('img, picture source, [data-src], [data-lazy-src], [data-original], video, [srcset]').forEach(el => {
+                    // Regular src
                     if (el.src && !el.src.startsWith('data:') && !el.src.startsWith('blob:')) {
-                        result.imageUrls.add(el.src);
+                        urls.images.add(el.src);
                     }
-                    
                     // Data attributes
-                    ['src', 'lazySrc', 'original', 'lazy', 'srcset'].forEach(attr => {
+                    ['src', 'lazySrc', 'original', 'lazy', 'lazyLoad', 'dataSrc'].forEach(attr => {
                         const val = el.dataset[attr];
-                        if (val && !val.startsWith('data:')) {
-                            result.imageUrls.add(val);
+                        if (val && !val.startsWith('data:') && !val.startsWith('blob:')) {
+                            urls.images.add(val);
                         }
                     });
-                    
                     // Srcset
                     if (el.srcset) {
-                        el.srcset.split(',').forEach(srcset => {
-                            const url = srcset.trim().split(' ')[0];
-                            if (url && !url.startsWith('data:')) {
-                                result.imageUrls.add(url);
+                        el.srcset.split(',').forEach(src => {
+                            const url = src.trim().split(' ')[0];
+                            if (url && !url.startsWith('data:') && !url.startsWith('blob:')) {
+                                urls.images.add(url);
                             }
                         });
                     }
                 });
 
-                // Background images from computed styles
+                // Background images from ALL elements
                 document.querySelectorAll('*').forEach(el => {
                     try {
-                        const style = window.getComputedStyle(el);
-                        const bgImage = style.backgroundImage;
-                        if (bgImage && bgImage !== 'none') {
-                            const matches = bgImage.match(/url\(["']?([^"')]+)["']?\)/g);
+                        const bg = window.getComputedStyle(el).backgroundImage;
+                        if (bg && bg !== 'none') {
+                            const matches = bg.match(/url\(["']?([^"')]+)["']?\)/g);
                             if (matches) {
                                 matches.forEach(match => {
                                     const url = match.match(/url\(["']?([^"')]+)["']?\)/)[1];
                                     if (url && !url.startsWith('data:') && !url.startsWith('blob:')) {
-                                        result.imageUrls.add(url);
+                                        urls.images.add(url);
                                     }
                                 });
                             }
@@ -308,17 +336,26 @@ class UltraAccurateWebsiteScraper {
                     } catch (e) {}
                 });
 
-                // Fonts from stylesheets
+                // SVG sprites and icons
+                document.querySelectorAll('svg, use, image[href], image[xlink\\:href]').forEach(el => {
+                    const href = el.href?.baseVal || el.getAttribute('href') || el.getAttribute('xlink:href');
+                    if (href && !href.startsWith('#') && !href.startsWith('data:')) {
+                        urls.svgs.add(href);
+                    }
+                });
+
+                // Fonts from stylesheets and computed styles
                 try {
                     for (let sheet of document.styleSheets) {
                         try {
                             for (let rule of sheet.cssRules || sheet.rules) {
-                                if (rule.cssText && rule.cssText.includes('@font-face')) {
-                                    const fontMatches = rule.cssText.match(/url\(["']?([^"')]+\.(woff2?|ttf|eot|otf))["']?\)/gi);
+                                const cssText = rule.cssText || '';
+                                if (cssText.includes('@font-face') || cssText.includes('font-family')) {
+                                    const fontMatches = cssText.match(/url\(["']?([^"')]+\.(woff2?|ttf|eot|otf|svg))["']?\)/gi);
                                     if (fontMatches) {
                                         fontMatches.forEach(match => {
                                             const url = match.match(/url\(["']?([^"')]+)["']?\)/)[1];
-                                            if (url) result.fontUrls.add(url);
+                                            if (url) urls.fonts.add(url);
                                         });
                                     }
                                 }
@@ -327,68 +364,80 @@ class UltraAccurateWebsiteScraper {
                     }
                 } catch (e) {}
 
+                // Icon fonts
+                document.querySelectorAll('[class*="icon"], [class*="fa-"], i, .material-icons').forEach(el => {
+                    try {
+                        const fontFamily = window.getComputedStyle(el).fontFamily;
+                        if (fontFamily && (fontFamily.includes('icon') || fontFamily.includes('awesome') || fontFamily.includes('material'))) {
+                            // Mark that we need this font
+                            el.setAttribute('data-icon-font', fontFamily);
+                        }
+                    } catch (e) {}
+                });
+
                 return {
-                    cssUrls: Array.from(result.cssUrls),
-                    jsUrls: Array.from(result.jsUrls),
-                    imageUrls: Array.from(result.imageUrls),
-                    fontUrls: Array.from(result.fontUrls)
+                    css: Array.from(urls.css),
+                    js: Array.from(urls.js),
+                    images: Array.from(urls.images),
+                    fonts: Array.from(urls.fonts),
+                    svgs: Array.from(urls.svgs)
                 };
-            }, this.baseUrl.origin);
+            });
 
-            this.log(`   📋 Found ${resources.cssUrls.length} CSS files`);
-            this.log(`   📋 Found ${resources.jsUrls.length} JS files`);
-            this.log(`   📋 Found ${resources.imageUrls.length} images`);
-            this.log(`   📋 Found ${resources.fontUrls.length} fonts\n`);
+            this.log(`   📋 CSS files: ${resourceUrls.css.length}`);
+            this.log(`   📋 JS files: ${resourceUrls.js.length}`);
+            this.log(`   📋 Images: ${resourceUrls.images.length}`);
+            this.log(`   📋 Fonts: ${resourceUrls.fonts.length}`);
+            this.log(`   📋 SVGs: ${resourceUrls.svgs.length}\n`);
 
-            // Download ALL CSS
-            this.log('🎨 Downloading CSS files...\n');
-            const downloadedCSS = [];
+            // Download CSS with retries
+            this.log('🎨 Step 2: Downloading ALL CSS files...\n');
+            const cssContents = [];
             
-            for (let i = 0; i < resources.cssUrls.length; i++) {
-                const cssUrl = resources.cssUrls[i];
-                this.log(`   [${i+1}/${resources.cssUrls.length}] ${cssUrl.substring(cssUrl.length - 50)}`);
-                
-                const content = await this.fetchResource(cssUrl);
+            for (let i = 0; i < resourceUrls.css.length; i++) {
+                const url = resourceUrls.css[i];
+                this.log(`   [${i+1}/${resourceUrls.css.length}] ${url.substring(Math.max(0, url.length - 60))}`);
+                const content = await this.fetchResource(url);
                 if (content && content.trim()) {
-                    downloadedCSS.push({ url: cssUrl, content });
-                    this.log(`   ✓ ${content.length.toLocaleString()} bytes\n`);
+                    cssContents.push({ url, content });
+                    this.log(`   ✓ Downloaded ${content.length.toLocaleString()} bytes\n`);
                 } else {
-                    this.log(`   ✗ Failed\n`);
+                    this.log(`   ✗ Failed or empty\n`);
                 }
             }
 
-            // Download ALL fonts
-            this.log('🔤 Downloading font files...\n');
-            const downloadedFonts = [];
+            // Download fonts
+            this.log('🔤 Step 3: Downloading font files...\n');
+            const fontContents = [];
             
-            for (let i = 0; i < resources.fontUrls.length; i++) {
-                const fontUrl = resources.fontUrls[i];
-                this.log(`   [${i+1}/${resources.fontUrls.length}] ${fontUrl.substring(fontUrl.length - 50)}`);
-                
-                const content = await this.fetchResource(fontUrl);
+            for (let i = 0; i < resourceUrls.fonts.length; i++) {
+                const url = resourceUrls.fonts[i];
+                this.log(`   [${i+1}/${resourceUrls.fonts.length}] ${url.substring(Math.max(0, url.length - 60))}`);
+                const content = await this.fetchResource(url);
                 if (content && content.length > 0) {
-                    downloadedFonts.push({ url: fontUrl, content });
-                    this.log(`   ✓ ${content.length.toLocaleString()} bytes\n`);
+                    fontContents.push({ url, content });
+                    this.log(`   ✓ Downloaded ${content.length.toLocaleString()} bytes\n`);
                 } else {
                     this.log(`   ✗ Failed\n`);
                 }
             }
 
-            // Extract ALL CSS from page (including computed styles)
-            this.log('🎨 Extracting page styles (inline + computed)...\n');
+            // Extract ALL page CSS
+            this.log('🎨 Step 4: Extracting page CSS (inline + computed)...\n');
             
             const pageCSS = await page.evaluate(() => {
                 let css = '';
 
-                // All <style> tags
+                // All style tags
                 document.querySelectorAll('style').forEach(style => {
                     if (style.textContent) {
-                        css += '\n/* Style Block */\n' + style.textContent + '\n';
+                        css += `\n/* ========== Style Block ========== */\n${style.textContent}\n`;
                     }
                 });
 
-                // All inline style attributes (preserve exactly)
-                document.querySelectorAll('[style]').forEach((el, idx) => {
+                // All inline styles
+                let inlineIdx = 0;
+                document.querySelectorAll('[style]').forEach(el => {
                     const style = el.getAttribute('style');
                     if (style && style.trim()) {
                         const className = typeof el.className === 'string' ? el.className : '';
@@ -397,64 +446,66 @@ class UltraAccurateWebsiteScraper {
                         let selector = el.tagName.toLowerCase() + id + (classes ? '.' + classes : '');
                         
                         if (!id && !classes) {
-                            selector += `[data-inline-style="${idx}"]`;
-                            el.setAttribute('data-inline-style', idx);
+                            el.setAttribute('data-inline-s', inlineIdx);
+                            selector += `[data-inline-s="${inlineIdx}"]`;
+                            inlineIdx++;
                         }
                         
                         css += `${selector} { ${style} }\n`;
                     }
                 });
 
-                // Computed styles for ALL elements with backgrounds or special properties
-                document.querySelectorAll('*').forEach((el, idx) => {
-                    if (idx < 500) {
+                // Computed styles for elements with backgrounds, fonts, or icons
+                let computedIdx = 0;
+                document.querySelectorAll('*').forEach(el => {
+                    if (computedIdx < 600) {
                         try {
                             const computed = window.getComputedStyle(el);
                             const bgImage = computed.backgroundImage;
                             const fontFamily = computed.fontFamily;
+                            const content = computed.content;
                             
-                            if ((bgImage && bgImage !== 'none' && !bgImage.includes('data:')) || 
-                                (fontFamily && fontFamily !== 'serif' && fontFamily !== 'sans-serif')) {
-                                
+                            let needsRule = false;
+                            let ruleCSS = '';
+                            
+                            // Background images
+                            if (bgImage && bgImage !== 'none' && !bgImage.includes('data:')) {
+                                needsRule = true;
+                                ruleCSS += `  background-image: ${bgImage};\n`;
+                                ruleCSS += `  background-size: ${computed.backgroundSize};\n`;
+                                ruleCSS += `  background-position: ${computed.backgroundPosition};\n`;
+                                ruleCSS += `  background-repeat: ${computed.backgroundRepeat};\n`;
+                                ruleCSS += `  background-attachment: ${computed.backgroundAttachment};\n`;
+                            }
+                            
+                            // Fonts (especially for icons)
+                            if (fontFamily && !fontFamily.includes('Times') && !fontFamily.includes('serif')) {
+                                needsRule = true;
+                                ruleCSS += `  font-family: ${fontFamily};\n`;
+                                ruleCSS += `  font-size: ${computed.fontSize};\n`;
+                                ruleCSS += `  font-weight: ${computed.fontWeight};\n`;
+                                ruleCSS += `  font-style: ${computed.fontStyle};\n`;
+                            }
+                            
+                            // Icon content (::before, ::after)
+                            if (content && content !== 'none' && content !== 'normal') {
+                                needsRule = true;
+                                ruleCSS += `  content: ${content};\n`;
+                            }
+                            
+                            if (needsRule) {
                                 const className = typeof el.className === 'string' ? el.className : '';
                                 const classes = className.split(' ').filter(c => c.trim()).join('.');
                                 const id = el.id ? `#${el.id}` : '';
                                 let selector = el.tagName.toLowerCase() + id + (classes ? '.' + classes : '');
                                 
                                 if (!id && !classes) {
-                                    selector += `[data-computed-style="${idx}"]`;
-                                    el.setAttribute('data-computed-style', idx);
-                                }
-
-                                css += `\n${selector} {\n`;
-                                
-                                if (bgImage && bgImage !== 'none') {
-                                    css += `  background-image: ${bgImage};\n`;
-                                    css += `  background-size: ${computed.backgroundSize};\n`;
-                                    css += `  background-position: ${computed.backgroundPosition};\n`;
-                                    css += `  background-repeat: ${computed.backgroundRepeat};\n`;
-                                    css += `  background-attachment: ${computed.backgroundAttachment};\n`;
+                                    el.setAttribute('data-computed-s', computedIdx);
+                                    selector += `[data-computed-s="${computedIdx}"]`;
+                                    computedIdx++;
                                 }
                                 
-                                if (fontFamily) {
-                                    css += `  font-family: ${fontFamily};\n`;
-                                    css += `  font-size: ${computed.fontSize};\n`;
-                                    css += `  font-weight: ${computed.fontWeight};\n`;
-                                    css += `  font-style: ${computed.fontStyle};\n`;
-                                    css += `  line-height: ${computed.lineHeight};\n`;
-                                    css += `  letter-spacing: ${computed.letterSpacing};\n`;
-                                }
-                                
-                                const height = computed.height;
-                                const minHeight = computed.minHeight;
-                                if (height && height !== 'auto' && height !== '0px') {
-                                    css += `  height: ${height};\n`;
-                                }
-                                if (minHeight && minHeight !== '0px') {
-                                    css += `  min-height: ${minHeight};\n`;
-                                }
-                                
-                                css += `}\n`;
+                                css += `\n${selector} {\n${ruleCSS}}\n`;
                             }
                         } catch (e) {}
                     }
@@ -480,25 +531,24 @@ class UltraAccurateWebsiteScraper {
 
             this.log(`   ✓ Extracted ${pageCSS.length.toLocaleString()} characters\n`);
 
-            // Download ALL JS
-            this.log('📜 Downloading JavaScript files...\n');
-            const downloadedJS = [];
+            // Download JS
+            this.log('📜 Step 5: Downloading JavaScript files...\n');
+            const jsContents = [];
             
-            for (let i = 0; i < resources.jsUrls.length; i++) {
-                const jsUrl = resources.jsUrls[i];
-                this.log(`   [${i+1}/${resources.jsUrls.length}] ${jsUrl.substring(jsUrl.length - 50)}`);
-                
-                const content = await this.fetchResource(jsUrl);
+            for (let i = 0; i < resourceUrls.js.length; i++) {
+                const url = resourceUrls.js[i];
+                this.log(`   [${i+1}/${resourceUrls.js.length}] ${url.substring(Math.max(0, url.length - 60))}`);
+                const content = await this.fetchResource(url);
                 if (content && content.trim()) {
-                    downloadedJS.push({ url: jsUrl, content });
-                    this.log(`   ✓ ${content.length.toLocaleString()} bytes\n`);
+                    jsContents.push({ url, content });
+                    this.log(`   ✓ Downloaded ${content.length.toLocaleString()} bytes\n`);
                 } else {
                     this.log(`   ✗ Failed\n`);
                 }
             }
 
             // Extract inline JS
-            this.log('📜 Extracting inline JavaScript...\n');
+            this.log('📜 Step 6: Extracting inline JavaScript...\n');
             
             const inlineJS = await page.evaluate(() => {
                 let js = '';
@@ -507,8 +557,9 @@ class UltraAccurateWebsiteScraper {
                     if (content && content.trim() && 
                         !content.includes('google-analytics') &&
                         !content.includes('gtag') &&
-                        !content.includes('googletagmanager')) {
-                        js += '\n' + content + '\n';
+                        !content.includes('googletagmanager') &&
+                        !content.includes('facebook.com/tr')) {
+                        js += `\n${content}\n`;
                     }
                 });
                 return js;
@@ -516,8 +567,8 @@ class UltraAccurateWebsiteScraper {
 
             this.log(`   ✓ Extracted ${inlineJS.length.toLocaleString()} characters\n`);
 
-            // Get final HTML
-            this.log('🔨 Building final HTML...\n');
+            // Get HTML
+            this.log('🔨 Step 7: Building final HTML...\n');
             
             let html = await page.content();
 
@@ -526,27 +577,23 @@ class UltraAccurateWebsiteScraper {
             html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
             html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
 
-            // Build combined CSS
-            let allCSS = '';
-            
-            downloadedCSS.forEach((item, i) => {
-                allCSS += `\n/* ========== CSS File ${i+1}: ${item.url} ========== */\n${item.content}\n`;
+            // Build final CSS
+            let finalCSS = '/* ========== External CSS Files ========== */\n\n';
+            cssContents.forEach((item, i) => {
+                finalCSS += `/* File ${i+1}: ${item.url} */\n${item.content}\n\n`;
             });
-            
-            allCSS += `\n/* ========== Page Styles ========== */\n${pageCSS}\n`;
+            finalCSS += '\n/* ========== Page Styles ========== */\n\n' + pageCSS;
 
-            // Build combined JS
-            let allJS = '';
-            
-            downloadedJS.forEach((item, i) => {
-                allJS += `\n// ========== JS File ${i+1}: ${item.url} ==========\n${item.content}\n`;
+            // Build final JS
+            let finalJS = '// ========== External JS Files ==========\n\n';
+            jsContents.forEach((item, i) => {
+                finalJS += `// File ${i+1}: ${item.url}\n${item.content}\n\n`;
             });
-            
-            allJS += `\n// ========== Inline Scripts ==========\n${inlineJS}\n`;
+            finalJS += '\n// ========== Inline Scripts ==========\n\n' + inlineJS;
 
             // Create blocks
-            const cssBlock = `<style>\n${allCSS}\n</style>`;
-            const jsBlock = `<script>\n${allJS}\n</script>`;
+            const cssBlock = `<style>\n${finalCSS}\n</style>`;
+            const jsBlock = `<script>\n${finalJS}\n</script>`;
 
             // Insert CSS
             if (html.includes('</head>')) {
@@ -570,27 +617,28 @@ class UltraAccurateWebsiteScraper {
 
             await browser.close();
 
-            this.log('╔═══════════════════════════════════════════╗');
-            this.log('║    ✅ PERFECT COPY COMPLETED!            ║');
-            this.log('╚═══════════════════════════════════════════╝\n');
+            this.log('╔════════════════════════════════════════════╗');
+            this.log('║    ✅ PERFECT SCRAPING COMPLETED!         ║');
+            this.log('╚════════════════════════════════════════════╝\n');
             this.log('📊 Final Summary:\n');
-            this.log(`   ✅ CSS files: ${downloadedCSS.length} (${downloadedCSS.reduce((a,b) => a + b.content.length, 0).toLocaleString()} chars)`);
-            this.log(`   ✅ Page CSS: ${pageCSS.length.toLocaleString()} chars`);
-            this.log(`   ✅ Total CSS: ${allCSS.length.toLocaleString()} chars\n`);
-            this.log(`   ✅ JS files: ${downloadedJS.length} (${downloadedJS.reduce((a,b) => a + b.content.length, 0).toLocaleString()} chars)`);
-            this.log(`   ✅ Inline JS: ${inlineJS.length.toLocaleString()} chars`);
-            this.log(`   ✅ Total JS: ${allJS.length.toLocaleString()} chars\n`);
-            this.log(`   ✅ Images found: ${resources.imageUrls.length}`);
-            this.log(`   ✅ Fonts downloaded: ${downloadedFonts.length}`);
+            this.log(`   ✅ CSS files: ${cssContents.length} downloaded`);
+            this.log(`   ✅ JS files: ${jsContents.length} downloaded`);
+            this.log(`   ✅ Images found: ${resourceUrls.images.length}`);
+            this.log(`   ✅ Fonts: ${fontContents.length} downloaded`);
+            this.log(`   ✅ Total CSS: ${finalCSS.length.toLocaleString()} chars`);
+            this.log(`   ✅ Total JS: ${finalJS.length.toLocaleString()} chars`);
             this.log(`   ✅ Final HTML: ${html.length.toLocaleString()} chars\n`);
+            this.log(`   Strategy used: ${finalStrategy}\n`);
 
             // Output to stdout
             console.log(html);
 
         } catch (error) {
-            this.log(`\n❌ Error: ${error.message}`);
+            this.log(`\n❌ FATAL ERROR: ${error.message}`);
             this.log(error.stack);
-            if (browser) await browser.close();
+            if (browser) {
+                try { await browser.close(); } catch (e) {}
+            }
             process.exit(1);
         }
     }
@@ -600,18 +648,18 @@ class UltraAccurateWebsiteScraper {
 const url = process.argv[2];
 
 if (!url) {
-    console.error('❌ Error: No URL provided');
+    console.error('❌ No URL provided');
     console.error('Usage: node scraper.js <url>');
     process.exit(1);
 }
 
-let targetUrl = url;
-if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    targetUrl = 'https://' + url;
+let targetUrl = url.trim();
+if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+    targetUrl = 'https://' + targetUrl;
 }
 
-const scraper = new UltraAccurateWebsiteScraper(targetUrl);
+const scraper = new PerfectWebsiteScraper(targetUrl);
 scraper.scrape().catch(error => {
-    console.error('❌ Fatal error:', error.message);
+    console.error('❌ Fatal:', error.message);
     process.exit(1);
 });
