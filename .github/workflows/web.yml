@@ -10,6 +10,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write  # Required to push commits
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
@@ -17,6 +20,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
         
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -44,16 +50,10 @@ jobs:
           
       - name: Save scraped content
         run: |
-          # Create scraped-results directory if it doesn't exist
           mkdir -p scraped-results
-          
-          # Generate unique filename with timestamp
           TIMESTAMP=$(date +%s)
           FILENAME="scraped_${TIMESTAMP}.html"
-          
-          # Copy output
           cp output.html "scraped-results/${FILENAME}"
-          
           echo "Saved to scraped-results/${FILENAME}"
           ls -lh scraped-results/
           
@@ -75,16 +75,12 @@ jobs:
       - name: Clean old files (keep last 10)
         run: |
           cd scraped-results
-          
-          # Count files
           FILE_COUNT=$(ls -1 scraped_*.html 2>/dev/null | wc -l)
           echo "Total files: ${FILE_COUNT}"
           
-          # Only clean if more than 10 files
           if [ ${FILE_COUNT} -gt 10 ]; then
             echo "Cleaning old files..."
             ls -t scraped_*.html | tail -n +11 | xargs rm -f
-            
             cd ..
             git add scraped-results/
             git commit -m "Clean old scraped files" || echo "Nothing to clean"
