@@ -18,11 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          
+        
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -31,70 +29,50 @@ jobs:
       - name: Install Puppeteer
         run: npm install puppeteer
         
-      - name: Get URL from trigger
+      - name: Get URL
         id: get-url
         run: |
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            URL="${{ github.event.client_payload.url }}"
+            echo "url=${{ github.event.client_payload.url }}" >> $GITHUB_OUTPUT
           else
-            URL="${{ inputs.url }}"
+            echo "url=${{ inputs.url }}" >> $GITHUB_OUTPUT
           fi
-          echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "Scraping: $URL"
           
-      - name: Run scraper
+      - name: Run Scraper
         run: |
-          node scraper.js "${{ steps.get-url.outputs.url }}" > output.html 2> scraper.log
-          echo "✅ Scraping completed"
-          cat scraper.log || true
+          node scraper.js "${{ steps.get-url.outputs.url }}" > output.html 2>&1
+          echo "Scraping completed"
           
-      - name: Verify output exists
+      - name: Verify Output
         run: |
           if [ ! -f output.html ]; then
-            echo "❌ Error: output.html was not created"
+            echo "ERROR: output.html not created"
             exit 1
           fi
-          
-          SIZE=$(stat -f%z output.html 2>/dev/null || stat -c%s output.html)
-          echo "📄 Output file size: ${SIZE} bytes"
-          
-          if [ ${SIZE} -lt 50 ]; then
-            echo "⚠️  Warning: File seems too small"
+          SIZE=$(wc -c < output.html)
+          echo "Output size: $SIZE bytes"
+          if [ $SIZE -lt 50 ]; then
+            echo "ERROR: Output too small"
             cat output.html
             exit 1
           fi
           
-      - name: Save to repository
+      - name: Commit to Repository
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           mkdir -p scraped-results
-          TIMESTAMP=$(date +%s)
-          FILENAME="scraped_${TIMESTAMP}.html"
+          cp output.html scraped-results/latest.html
           
-          cp output.html "scraped-results/${FILENAME}"
-          echo "💾 Saved as: ${FILENAME}"
+          git add scraped-results/latest.html
           
-          git add scraped-results/
-          git commit -m "Add scraped content (timestamp: ${TIMESTAMP})"
-          git push
+          # Force commit even if no changes
+          git diff --staged --quiet || git commit -m "Update scraped content [skip ci]"
           
-          echo "✅ Successfully committed to repository"
+          # Push with retry
+          for i in 1 2 3; do
+            git push && break || sleep 2
+          done
           
-      - name: Cleanup old files (keep last 10)
-        run: |
-          cd scraped-results || exit 0
-          
-          FILE_COUNT=$(ls -1 scraped_*.html 2>/dev/null | wc -l | tr -d ' ')
-          echo "📊 Total files: ${FILE_COUNT}"
-          
-          if [ ${FILE_COUNT} -gt 10 ]; then
-            echo "🧹 Cleaning old files..."
-            ls -t scraped_*.html | tail -n +11 | xargs rm -f
-            
-            cd ..
-            git add scraped-results/
-            git commit -m "Clean old scraped files (keeping last 10)" || true
-            git push || true
-          fi
+          echo "Successfully committed and pushed"
