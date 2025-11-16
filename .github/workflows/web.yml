@@ -28,10 +28,10 @@ jobs:
         with:
           node-version: '18'
           
-      - name: Install dependencies
+      - name: Install Puppeteer
         run: npm install puppeteer
         
-      - name: Get URL
+      - name: Get URL from trigger
         id: get-url
         run: |
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
@@ -40,27 +40,28 @@ jobs:
             URL="${{ inputs.url }}"
           fi
           echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "Scraping URL: $URL"
+          echo "Scraping: $URL"
           
       - name: Run scraper
         run: |
           node scraper.js "${{ steps.get-url.outputs.url }}" > output.html 2> scraper.log
-          echo "Scraping completed"
+          echo "✅ Scraping completed"
           cat scraper.log || true
           
-      - name: Verify output
+      - name: Verify output exists
         run: |
           if [ ! -f output.html ]; then
-            echo "Error: output.html not created"
+            echo "❌ Error: output.html was not created"
             exit 1
           fi
           
-          SIZE=$(wc -c < output.html)
-          echo "Output size: ${SIZE} bytes"
+          SIZE=$(stat -f%z output.html 2>/dev/null || stat -c%s output.html)
+          echo "📄 Output file size: ${SIZE} bytes"
           
-          if [ ${SIZE} -lt 100 ]; then
-            echo "Warning: Output file seems too small"
+          if [ ${SIZE} -lt 50 ]; then
+            echo "⚠️  Warning: File seems too small"
             cat output.html
+            exit 1
           fi
           
       - name: Save to repository
@@ -70,30 +71,30 @@ jobs:
           
           mkdir -p scraped-results
           TIMESTAMP=$(date +%s)
-          cp output.html "scraped-results/scraped_${TIMESTAMP}.html"
+          FILENAME="scraped_${TIMESTAMP}.html"
+          
+          cp output.html "scraped-results/${FILENAME}"
+          echo "💾 Saved as: ${FILENAME}"
           
           git add scraped-results/
           git commit -m "Add scraped content (timestamp: ${TIMESTAMP})"
           git push
           
-          echo "File saved: scraped-results/scraped_${TIMESTAMP}.html"
+          echo "✅ Successfully committed to repository"
           
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: scraped-html
-          path: output.html
-          retention-days: 1
-          
-      - name: Clean old files
+      - name: Cleanup old files (keep last 10)
         run: |
-          cd scraped-results
-          FILE_COUNT=$(ls -1 scraped_*.html 2>/dev/null | wc -l)
+          cd scraped-results || exit 0
+          
+          FILE_COUNT=$(ls -1 scraped_*.html 2>/dev/null | wc -l | tr -d ' ')
+          echo "📊 Total files: ${FILE_COUNT}"
           
           if [ ${FILE_COUNT} -gt 10 ]; then
+            echo "🧹 Cleaning old files..."
             ls -t scraped_*.html | tail -n +11 | xargs rm -f
+            
             cd ..
             git add scraped-results/
-            git commit -m "Clean old files" || true
+            git commit -m "Clean old scraped files (keeping last 10)" || true
             git push || true
           fi
