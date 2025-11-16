@@ -11,7 +11,7 @@ on:
         type: string
 
 permissions:
-  contents: write  # Required to push commits
+  contents: write
 
 jobs:
   scrape:
@@ -22,8 +22,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          persist-credentials: true
-        
+          
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -32,59 +31,69 @@ jobs:
       - name: Install dependencies
         run: npm install puppeteer
         
-      - name: Get URL from event
+      - name: Get URL
         id: get-url
         run: |
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            echo "url=${{ github.event.client_payload.url }}" >> $GITHUB_OUTPUT
+            URL="${{ github.event.client_payload.url }}"
           else
-            echo "url=${{ inputs.url }}" >> $GITHUB_OUTPUT
+            URL="${{ inputs.url }}"
           fi
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Scraping URL: $URL"
           
       - name: Run scraper
         run: |
-          echo "Scraping URL: ${{ steps.get-url.outputs.url }}"
           node scraper.js "${{ steps.get-url.outputs.url }}" > output.html 2> scraper.log
-          echo "Scraper completed"
+          echo "Scraping completed"
           cat scraper.log || true
           
-      - name: Save scraped content
+      - name: Verify output
         run: |
-          mkdir -p scraped-results
-          TIMESTAMP=$(date +%s)
-          FILENAME="scraped_${TIMESTAMP}.html"
-          cp output.html "scraped-results/${FILENAME}"
-          echo "Saved to scraped-results/${FILENAME}"
-          ls -lh scraped-results/
+          if [ ! -f output.html ]; then
+            echo "Error: output.html not created"
+            exit 1
+          fi
           
-      - name: Commit and push
+          SIZE=$(wc -c < output.html)
+          echo "Output size: ${SIZE} bytes"
+          
+          if [ ${SIZE} -lt 100 ]; then
+            echo "Warning: Output file seems too small"
+            cat output.html
+          fi
+          
+      - name: Save to repository
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
+          mkdir -p scraped-results
+          TIMESTAMP=$(date +%s)
+          cp output.html "scraped-results/scraped_${TIMESTAMP}.html"
+          
           git add scraped-results/
+          git commit -m "Add scraped content (timestamp: ${TIMESTAMP})"
+          git push
           
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Add scraped content at $(date +%s)"
-            git push
-            echo "Changes pushed successfully"
-          fi
+          echo "File saved: scraped-results/scraped_${TIMESTAMP}.html"
           
-      - name: Clean old files (keep last 10)
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraped-html
+          path: output.html
+          retention-days: 1
+          
+      - name: Clean old files
         run: |
           cd scraped-results
           FILE_COUNT=$(ls -1 scraped_*.html 2>/dev/null | wc -l)
-          echo "Total files: ${FILE_COUNT}"
           
           if [ ${FILE_COUNT} -gt 10 ]; then
-            echo "Cleaning old files..."
             ls -t scraped_*.html | tail -n +11 | xargs rm -f
             cd ..
             git add scraped-results/
-            git commit -m "Clean old scraped files" || echo "Nothing to clean"
-            git push || echo "Nothing to push"
-          else
-            echo "Not enough files to clean (${FILE_COUNT}/10)"
+            git commit -m "Clean old files" || true
+            git push || true
           fi
