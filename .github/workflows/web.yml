@@ -41,9 +41,29 @@ jobs:
           node scraper.js "${{ steps.get-url.outputs.url }}" > output.html 2> scraper.log
           cat scraper.log
           
-      - name: Upload result as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: scraped-html
-          path: output.html
-          retention-days: 1
+      - name: Commit result to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create scraped-results directory if it doesn't exist
+          mkdir -p scraped-results
+          
+          # Generate unique filename with timestamp
+          TIMESTAMP=$(date +%s)
+          cp output.html "scraped-results/scraped_${TIMESTAMP}.html"
+          
+          # Add and commit
+          git add scraped-results/
+          git commit -m "Add scraped content from ${{ steps.get-url.outputs.url }} at ${TIMESTAMP}" || echo "No changes"
+          git push || echo "Nothing to push"
+          
+      - name: Clean old files (keep last 10)
+        run: |
+          cd scraped-results
+          ls -t scraped_*.html | tail -n +11 | xargs -r rm
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Clean old scraped files"
+            git push
+          fi
