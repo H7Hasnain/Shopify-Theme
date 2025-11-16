@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       url:
-        description: 'Website URL to scrape'
+        description: 'Website URL'
         required: true
         type: string
 
@@ -20,8 +20,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
         
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '18'
@@ -33,46 +36,36 @@ jobs:
         id: get-url
         run: |
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            echo "url=${{ github.event.client_payload.url }}" >> $GITHUB_OUTPUT
+            URL="${{ github.event.client_payload.url }}"
           else
-            echo "url=${{ inputs.url }}" >> $GITHUB_OUTPUT
+            URL="${{ inputs.url }}"
           fi
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Scraping: $URL"
           
       - name: Run Scraper
         run: |
           node scraper.js "${{ steps.get-url.outputs.url }}" > output.html 2>&1
           echo "Scraping completed"
+          ls -lh output.html
           
-      - name: Verify Output
+      - name: Commit and Push
         run: |
-          if [ ! -f output.html ]; then
-            echo "ERROR: output.html not created"
-            exit 1
-          fi
-          SIZE=$(wc -c < output.html)
-          echo "Output size: $SIZE bytes"
-          if [ $SIZE -lt 50 ]; then
-            echo "ERROR: Output too small"
-            cat output.html
-            exit 1
-          fi
-          
-      - name: Commit to Repository
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           
           mkdir -p scraped-results
-          cp output.html scraped-results/latest.html
           
-          git add scraped-results/latest.html
+          TIMESTAMP=$(date +%s%N)
+          FILENAME="scraped_${TIMESTAMP}.html"
           
-          # Force commit even if no changes
-          git diff --staged --quiet || git commit -m "Update scraped content [skip ci]"
+          cp output.html "scraped-results/${FILENAME}"
           
-          # Push with retry
-          for i in 1 2 3; do
-            git push && break || sleep 2
-          done
+          git add scraped-results/${FILENAME}
+          git commit -m "Add scraped content: ${FILENAME}"
           
-          echo "Successfully committed and pushed"
+          echo "Pushing to repository..."
+          git push origin main
+          
+          echo "File committed: ${FILENAME}"
+          echo "File size: $(wc -c < scraped-results/${FILENAME}) bytes"
