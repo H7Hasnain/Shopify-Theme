@@ -60,6 +60,20 @@ jobs:
             exit 1
           fi
           
+      - name: Sanitize Output
+        run: |
+          echo "Removing sensitive data..."
+          # Remove GitHub tokens (ghp_, gho_, ghs_, ghr_)
+          sed -i 's/ghp_[a-zA-Z0-9]\{36\}/GITHUB_TOKEN_REMOVED/g' output.html
+          sed -i 's/gho_[a-zA-Z0-9]\{36\}/GITHUB_TOKEN_REMOVED/g' output.html
+          sed -i 's/ghs_[a-zA-Z0-9]\{36\}/GITHUB_TOKEN_REMOVED/g' output.html
+          sed -i 's/ghr_[a-zA-Z0-9]\{36\}/GITHUB_TOKEN_REMOVED/g' output.html
+          
+          # Remove API keys patterns
+          sed -i 's/Bearer [a-zA-Z0-9_-]\{20,\}/Bearer TOKEN_REMOVED/g' output.html
+          
+          echo "Sanitization complete"
+          
       - name: Commit and Push
         run: |
           git config user.email "bot@github.com"
@@ -77,4 +91,5 @@ jobs:
           git commit -m "Add scraped content: ${FILENAME}"
           git push origin main
           
+          SIZE=$(wc -c < "scraped-results/${FILENAME}")
           echo "✅ Success! File: ${FILENAME}, Size: $SIZE bytes"
