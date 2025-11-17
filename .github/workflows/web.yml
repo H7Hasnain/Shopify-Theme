@@ -11,24 +11,25 @@ on:
         type: string
 
 permissions:
+  actions: write
   contents: read
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          
+
       - name: Install Puppeteer
         run: npm install puppeteer
-        
+
       - name: Get URL
         id: get-url
         run: |
@@ -38,22 +39,19 @@ jobs:
             URL="${{ inputs.url }}"
           fi
           echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "Scraping: $URL"
-          
+
       - name: Run Scraper
         run: |
           node scraper.js "${{ steps.get-url.outputs.url }}" > output.html
           SIZE=$(wc -c < output.html)
           echo "Output size: $SIZE bytes"
-          
+
       - name: Sanitize Output
         run: |
-          # Remove sensitive tokens
           sed -i 's/ghp_[a-zA-Z0-9]\{36\}/TOKEN_REMOVED/g' output.html
           sed -i 's/gho_[a-zA-Z0-9]\{36\}/TOKEN_REMOVED/g' output.html
           sed -i 's/Bearer [a-zA-Z0-9_-]\{20,\}/Bearer TOKEN_REMOVED/g' output.html
-          echo "Sanitized"
-          
+
       - name: Upload Result
         uses: actions/upload-artifact@v4
         with:
