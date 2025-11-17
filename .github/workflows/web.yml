@@ -1,60 +1,36 @@
-name: Scrape Website
+name: Web Scraper
 
 on:
-  repository_dispatch:
-    types: [scrape-website]
   workflow_dispatch:
     inputs:
       url:
-        description: 'Website URL'
+        description: "URL to scrape"
         required: true
         type: string
-
-permissions:
-  actions: write
-  contents: read
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: 18
 
-      - name: Install Puppeteer
-        run: npm install puppeteer
-
-      - name: Get URL
-        id: get-url
+      - name: Install Dependencies
         run: |
-          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            URL="${{ github.event.client_payload.url }}"
-          else
-            URL="${{ inputs.url }}"
-          fi
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          npm install
 
       - name: Run Scraper
         run: |
-          node scraper.js "${{ steps.get-url.outputs.url }}" > output.html
-          SIZE=$(wc -c < output.html)
-          echo "Output size: $SIZE bytes"
+          node scraper.js "${{ github.event.inputs.url }}" > scraped.html
 
-      - name: Sanitize Output
-        run: |
-          sed -i 's/ghp_[a-zA-Z0-9]\{36\}/TOKEN_REMOVED/g' output.html
-          sed -i 's/gho_[a-zA-Z0-9]\{36\}/TOKEN_REMOVED/g' output.html
-          sed -i 's/Bearer [a-zA-Z0-9_-]\{20,\}/Bearer TOKEN_REMOVED/g' output.html
-
-      - name: Upload Result
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: scraped-html
-          path: output.html
-          retention-days: 1
+          path: scraped.html
