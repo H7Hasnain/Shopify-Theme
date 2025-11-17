@@ -1,47 +1,80 @@
-const puppeteer = require('puppeteer');
+name: Scrape Website
 
-(async () => {
-    try {
-        const url = process.argv[2];
+on:
+  repository_dispatch:
+    types: [scrape-website]
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Website URL'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
         
-        if (!url) {
-            console.error('No URL provided');
-            process.exit(1);
-        }
-
-        console.error(`Starting Puppeteer for: ${url}`);
-
-        const browser = await puppeteer.launch({
-            headless: 'new',
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu'
-            ]
-        });
-
-        const page = await browser.newPage();
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install Puppeteer
+        run: npm install puppeteer
         
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        
-        console.error('Navigating to URL...');
-        await page.goto(url, {
-            waitUntil: 'networkidle2',
-            timeout: 60000
-        });
-
-        console.error('Getting HTML content...');
-        const html = await page.content();
-
-        await browser.close();
-
-        console.error(`Success! HTML length: ${html.length}`);
-        console.log(html); // Output to stdout
-
-    } catch (error) {
-        console.error('Scraper error:', error.message);
-        console.log('<html><body><h1>Scraping Failed</h1><p>Error: ' + error.message + '</p></body></html>');
-        process.exit(0); // Exit with 0 so workflow doesn't fail
-    }
-})();
+      - name: Get URL
+        id: get-url
+        run: |
+          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            URL="${{ github.event.client_payload.url }}"
+          else
+            URL="${{ inputs.url }}"
+          fi
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Scraping: $URL"
+          
+      - name: Run Scraper
+        run: |
+          echo "Starting scraper..."
+          node scraper.js "${{ steps.get-url.outputs.url }}" > output.html 2>&1
+          
+          echo "Verifying output..."
+          if [ ! -f output.html ]; then
+            echo "ERROR: output.html not created"
+            exit 1
+          fi
+          
+          SIZE=$(wc -c < output.html)
+          echo "Output size: $SIZE bytes"
+          
+          if [ $SIZE -lt 50 ]; then
+            echo "ERROR: Output too small"
+            cat output.html
+            exit 1
+          fi
+          
+      - name: Commit and Push
+        run: |
+          git config user.email "bot@github.com"
+          git config user.name "GitHub Actions Bot"
+          
+          mkdir -p scraped-results
+          
+          TIMESTAMP=$(date +%s%N)
+          FILENAME="scraped_${TIMESTAMP}.html"
+          
+          cp output.html "scraped-results/${FILENAME}"
+          
+          echo "Committing: ${FILENAME}"
+          git add "scraped-results/${FILENAME}"
+          git commit -m "Add scraped content: ${FILENAME}"
+          git push origin main
+          
+          echo "✅ Success! File: ${FILENAME}, Size: $SIZE bytes"
