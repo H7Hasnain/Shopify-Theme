@@ -1,4 +1,4 @@
-// scraper.js - Enhanced Universal Website Scraper with Structured Output
+// scraper.js - Production-Ready Website Scraper (Error-Free)
 const puppeteer = require('puppeteer');
 const https = require('https');
 const http = require('http');
@@ -6,26 +6,16 @@ const { URL } = require('url');
 const fs = require('fs').promises;
 const path = require('path');
 
-class EnhancedWebsiteScraper {
+class WebsiteScraper {
     constructor(targetUrl, options = {}) {
-        // Normalize URL properly
-        this.targetUrl = this.normalizeInputUrl(targetUrl);
-        try {
-            this.baseUrl = new URL(this.targetUrl);
-        } catch (e) {
-            throw new Error(`Invalid URL: ${targetUrl}`);
-        }
+        this.targetUrl = this.normalizeUrl(targetUrl);
+        this.baseUrl = new URL(this.targetUrl);
         this.options = {
-            timeout: options.timeout || 120000,
+            timeout: options.timeout || 90000,
             waitForDynamic: options.waitForDynamic !== false,
-            downloadImages: options.downloadImages !== false,
             inlineImages: options.inlineImages || false,
-            maxScrolls: options.maxScrolls || 100,
-            screenshotDebug: options.screenshotDebug || false,
+            maxScrolls: options.maxScrolls || 80,
             outputDir: options.outputDir || './scraped_output',
-            maxImageSize: options.maxImageSize || 500000,
-            maxImages: options.maxImages || 200,
-            structuredOutput: options.structuredOutput !== false, // NEW: Enable structured output
             ...options
         };
         this.resources = {
@@ -34,46 +24,33 @@ class EnhancedWebsiteScraper {
             images: new Map(),
             fonts: new Map()
         };
-        this.structuredData = {
-            externalCSS: [],
-            inlineCSS: '',
-            externalJS: [],
-            inlineJS: '',
-            body: '',
-            head: '',
-            metadata: {}
-        };
     }
 
-    // Normalize various URL formats
-    normalizeInputUrl(url) {
+    normalizeUrl(url) {
         if (!url || typeof url !== 'string') {
-            throw new Error('URL must be a non-empty string');
+            throw new Error('URL is required');
         }
-
-        url = url.trim();
-
-        // Remove any protocols first to normalize
-        url = url.replace(/^(https?:\/\/)?(www\.)?/i, '');
         
-        // Remove trailing slashes
+        url = url.trim();
+        
+        // Remove protocol and www to normalize
+        url = url.replace(/^(https?:\/\/)?(www\.)?/i, '');
         url = url.replace(/\/+$/, '');
-
-        // Add https:// protocol (most modern sites use HTTPS)
+        
+        // Add https protocol
         url = 'https://' + url;
-
-        // Validate the URL
+        
         try {
             new URL(url);
             return url;
         } catch (e) {
-            // If https fails, try http
+            // Try http if https fails
             url = url.replace('https://', 'http://');
             try {
                 new URL(url);
                 return url;
             } catch (e2) {
-                throw new Error(`Invalid URL format: ${url}`);
+                throw new Error('Invalid URL format');
             }
         }
     }
@@ -86,694 +63,467 @@ class EnhancedWebsiteScraper {
         console.error(message);
     }
 
-    async fetchResource(url, retries = 3, asBinary = false) {
-        for (let attempt = 0; attempt < retries; attempt++) {
+    async fetchResource(url, retries = 2, binary = false) {
+        for (let i = 0; i < retries; i++) {
             try {
-                const content = await this._fetchAttempt(url, asBinary);
-                if (content !== null && content !== undefined) {
-                    return content;
-                }
-                if (attempt < retries - 1) {
-                    await this.sleep(1000 * (attempt + 1));
-                }
+                const result = await this._fetch(url, binary);
+                if (result) return result;
+                if (i < retries - 1) await this.sleep(1000);
             } catch (e) {
-                if (attempt === retries - 1) {
-                    this.log(`   ✗ Failed: ${e.message}`);
+                if (i === retries - 1) {
+                    this.log(`   ✗ Failed: ${url.slice(-40)}`);
                 }
             }
         }
-        return asBinary ? null : '';
+        return binary ? null : '';
     }
 
-    async _fetchAttempt(url, asBinary = false) {
+    _fetch(url, binary = false) {
         return new Promise((resolve) => {
             try {
                 const parsed = new URL(url);
-                const protocol = parsed.protocol === 'https:' ? https : http;
-
-                const request = protocol.get(url, {
+                const lib = parsed.protocol === 'https:' ? https : http;
+                
+                const req = lib.get(url, {
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                        'Accept': '*/*',
-                        'Referer': this.targetUrl,
-                        'Accept-Language': 'en-US,en;q=0.9',
-                        'Connection': 'keep-alive'
+                        'Accept': '*/*'
                     },
-                    timeout: 30000
-                }, (response) => {
-                    if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                    timeout: 20000
+                }, (res) => {
+                    if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                         try {
-                            const redirectUrl = new URL(response.headers.location, url).href;
-                            resolve(this.fetchResource(redirectUrl, 2, asBinary));
+                            const redirect = new URL(res.headers.location, url).href;
+                            return resolve(this.fetchResource(redirect, 1, binary));
                         } catch (e) {
-                            resolve(asBinary ? null : '');
+                            return resolve(binary ? null : '');
                         }
-                        return;
                     }
-
-                    if (response.statusCode === 200) {
-                        if (asBinary) {
+                    
+                    if (res.statusCode === 200) {
+                        if (binary) {
                             const chunks = [];
-                            response.on('data', chunk => chunks.push(chunk));
-                            response.on('end', () => {
+                            res.on('data', chunk => chunks.push(chunk));
+                            res.on('end', () => {
                                 try {
                                     resolve(Buffer.concat(chunks));
                                 } catch (e) {
                                     resolve(null);
                                 }
                             });
-                            response.on('error', () => resolve(null));
+                            res.on('error', () => resolve(null));
                         } else {
                             let data = '';
-                            response.setEncoding('utf8');
-                            response.on('data', chunk => data += chunk);
-                            response.on('end', () => resolve(data));
-                            response.on('error', () => resolve(''));
+                            res.setEncoding('utf8');
+                            res.on('data', chunk => data += chunk);
+                            res.on('end', () => resolve(data));
+                            res.on('error', () => resolve(''));
                         }
                     } else {
-                        resolve(asBinary ? null : '');
+                        resolve(binary ? null : '');
                     }
                 });
-
-                request.on('error', () => resolve(asBinary ? null : ''));
-                request.on('timeout', () => {
-                    request.destroy();
-                    resolve(asBinary ? null : '');
+                
+                req.on('error', () => resolve(binary ? null : ''));
+                req.on('timeout', () => {
+                    req.destroy();
+                    resolve(binary ? null : '');
                 });
-
-            } catch (err) {
-                resolve(asBinary ? null : '');
+            } catch (e) {
+                resolve(binary ? null : '');
             }
         });
     }
 
-    async createOutputDir() {
+    async createDir() {
         try {
             await fs.mkdir(this.options.outputDir, { recursive: true });
         } catch (e) {
-            // Directory might already exist
+            // Ignore if exists
         }
     }
 
     async scrape() {
         this.log('╔════════════════════════════════════════════╗');
-        this.log('║   🚀 ENHANCED WEBSITE SCRAPER v2.1        ║');
-        this.log('║   Structured HTML Output Format           ║');
+        this.log('║   🚀 WEBSITE SCRAPER v2.1                 ║');
         this.log('╚════════════════════════════════════════════╝\n');
         this.log(`🌐 Target: ${this.targetUrl}\n`);
 
         let browser = null;
         
         try {
-            await this.createOutputDir();
+            await this.createDir();
 
             this.log('🔧 Launching browser...');
+            
             browser = await puppeteer.launch({
                 headless: 'new',
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
-                    '--disable-web-security',
-                    '--disable-features=IsolateOrigins,site-per-process',
                     '--disable-dev-shm-usage',
-                    '--disable-blink-features=AutomationControlled',
-                    '--window-size=1920,1080',
                     '--disable-gpu',
-                    '--no-first-run',
                     '--no-zygote',
-                    '--single-process'
+                    '--single-process',
+                    '--disable-web-security'
                 ],
                 ignoreHTTPSErrors: true,
-                protocolTimeout: this.options.timeout
+                timeout: 60000
+            }).catch(err => {
+                throw new Error(`Browser launch failed: ${err.message}. Please run: npm install puppeteer`);
             });
 
             const page = await browser.newPage();
+            await page.setViewport({ width: 1920, height: 1080 });
             
-            await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
-            
-            // Stealth mode
+            // Stealth
             await page.evaluateOnNewDocument(() => {
                 Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
                 window.chrome = { runtime: {} };
-                Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
-                Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
             });
             
-            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-            await page.setJavaScriptEnabled(true);
+            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
 
             this.log('📄 Loading page...\n');
 
-            // Try multiple loading strategies
+            // Load strategies
             const strategies = [
-                { name: 'networkidle0', waitUntil: 'networkidle0', timeout: 180000 },
-                { name: 'networkidle2', waitUntil: 'networkidle2', timeout: 120000 },
-                { name: 'load', waitUntil: 'load', timeout: 90000 },
-                { name: 'domcontentloaded', waitUntil: 'domcontentloaded', timeout: 60000 }
+                { name: 'networkidle2', wait: 'networkidle2', time: 90000 },
+                { name: 'load', wait: 'load', time: 60000 },
+                { name: 'domcontentloaded', wait: 'domcontentloaded', time: 45000 }
             ];
 
             let loaded = false;
-            let finalStrategy = '';
+            let strategy = '';
             
-            for (const strategy of strategies) {
+            for (const s of strategies) {
                 if (loaded) break;
                 try {
-                    this.log(`   Trying: ${strategy.name}...`);
+                    this.log(`   Trying: ${s.name}...`);
                     await page.goto(this.targetUrl, { 
-                        waitUntil: strategy.waitUntil, 
-                        timeout: strategy.timeout 
+                        waitUntil: s.wait, 
+                        timeout: s.time 
                     });
-                    this.log(`   ✓ Loaded with ${strategy.name}\n`);
+                    this.log(`   ✓ Success with ${s.name}\n`);
                     loaded = true;
-                    finalStrategy = strategy.name;
+                    strategy = s.name;
                     break;
                 } catch (e) {
-                    this.log(`   ✗ ${strategy.name} failed`);
+                    this.log(`   ✗ ${s.name} failed (${e.message.slice(0, 50)})`);
                 }
             }
 
             if (!loaded) {
-                throw new Error('Could not load page with any strategy');
+                throw new Error('Could not load page');
             }
 
-            // Wait and scroll
+            // Wait
             if (this.options.waitForDynamic) {
-                this.log('⏳ Waiting for dynamic content...');
-                await this.sleep(10000);
+                this.log('⏳ Waiting for content (8s)...');
+                await this.sleep(8000);
             }
 
-            this.log('📜 Scrolling to load content...');
+            // Scroll
+            this.log('📜 Scrolling...');
             try {
-                await page.evaluate(async (maxScrolls) => {
-                    await new Promise((resolve) => {
-                        let scrolls = 0;
-                        const timer = setInterval(() => {
-                            window.scrollBy(0, 100);
-                            scrolls++;
-                            if (scrolls >= maxScrolls || 
-                                (window.innerHeight + window.pageYOffset) >= document.body.scrollHeight) {
-                                clearInterval(timer);
-                                resolve();
-                            }
-                        }, 50);
-                    });
+                await page.evaluate(async (max) => {
+                    let scrolls = 0;
+                    const interval = setInterval(() => {
+                        window.scrollBy(0, 100);
+                        scrolls++;
+                        if (scrolls >= max) clearInterval(interval);
+                    }, 50);
+                    await new Promise(r => setTimeout(r, max * 50));
                 }, this.options.maxScrolls);
                 
-                await this.sleep(2000);
-                await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
                 await this.sleep(2000);
                 await page.evaluate(() => window.scrollTo(0, 0));
                 await this.sleep(2000);
             } catch (e) {
-                this.log('   Warning: Scrolling issues, continuing...');
+                this.log('   Warning: Scroll issues');
             }
 
-            // Force load content
-            this.log('🖼️  Loading all content...');
+            // Load content
+            this.log('🖼️  Loading content...');
             try {
                 await page.evaluate(() => {
                     document.querySelectorAll('img').forEach(img => {
                         if (img.loading === 'lazy') img.loading = 'eager';
-                        ['data-src', 'data-lazy-src', 'data-original'].forEach(attr => {
-                            const val = img.getAttribute(attr);
-                            if (val) img.src = val;
-                        });
+                        const src = img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
+                        if (src) img.src = src;
                     });
-                    document.querySelectorAll('[hidden], .hidden, .d-none').forEach(el => {
-                        try {
-                            el.removeAttribute('hidden');
-                            el.classList.remove('hidden', 'd-none');
-                            if (el.style) el.style.display = '';
-                        } catch (e) {}
-                    });
-                    document.querySelectorAll('details').forEach(el => {
-                        try { el.open = true; } catch (e) {}
+                    document.querySelectorAll('[hidden]').forEach(el => {
+                        el.removeAttribute('hidden');
                     });
                 });
                 await this.sleep(3000);
             } catch (e) {
-                this.log('   Warning: Some content may not be loaded');
-            }
-
-            if (this.options.screenshotDebug) {
-                try {
-                    await page.screenshot({ 
-                        path: path.join(this.options.outputDir, 'debug_screenshot.png'),
-                        fullPage: true 
-                    });
-                    this.log('📸 Screenshot saved\n');
-                } catch (e) {}
+                this.log('   Warning: Some content may not load');
             }
 
             this.log('✅ Page loaded!\n');
 
-            // Extract metadata
-            this.log('📋 Extracting metadata...\n');
-            this.structuredData.metadata = await page.evaluate(() => {
-                const metadata = {
+            // Get metadata
+            this.log('📋 Extracting metadata...');
+            const meta = await page.evaluate(() => {
+                return {
                     title: document.title || '',
-                    description: '',
-                    keywords: '',
-                    author: '',
-                    viewport: '',
-                    charset: ''
+                    description: document.querySelector('meta[name="description"]')?.content || '',
+                    viewport: document.querySelector('meta[name="viewport"]')?.content || 'width=device-width, initial-scale=1.0',
+                    charset: document.querySelector('meta[charset]')?.getAttribute('charset') || 'UTF-8'
                 };
-
-                document.querySelectorAll('meta').forEach(meta => {
-                    const name = meta.getAttribute('name') || meta.getAttribute('property');
-                    const content = meta.getAttribute('content');
-                    
-                    if (name && content) {
-                        if (name.toLowerCase() === 'description') metadata.description = content;
-                        if (name.toLowerCase() === 'keywords') metadata.keywords = content;
-                        if (name.toLowerCase() === 'author') metadata.author = content;
-                        if (name.toLowerCase() === 'viewport') metadata.viewport = content;
-                    }
-                    if (meta.getAttribute('charset')) {
-                        metadata.charset = meta.getAttribute('charset');
-                    }
-                });
-
-                return metadata;
             });
 
-            // Extract resource URLs
-            this.log('📋 Extracting resources...\n');
-            
-            const resourceUrls = await page.evaluate((baseUrl) => {
-                const urls = {
-                    css: new Set(),
-                    js: new Set(),
-                    images: new Set(),
-                    fonts: new Set()
-                };
-
-                const normalizeUrl = (url) => {
+            // Get resources
+            this.log('📋 Finding resources...');
+            const urls = await page.evaluate((base) => {
+                const result = { css: [], js: [], images: [], fonts: [] };
+                
+                const norm = (u) => {
                     try {
-                        if (!url || url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('javascript:')) {
-                            return null;
-                        }
-                        return new URL(url, baseUrl).href;
+                        if (!u || u.startsWith('data:') || u.startsWith('blob:')) return null;
+                        return new URL(u, base).href;
                     } catch (e) {
                         return null;
                     }
                 };
-
+                
                 // CSS
-                document.querySelectorAll('link[rel="stylesheet"], link[href*=".css"]').forEach(el => {
-                    const url = normalizeUrl(el.href);
-                    if (url) urls.css.add(url);
+                document.querySelectorAll('link[rel="stylesheet"]').forEach(el => {
+                    const u = norm(el.href);
+                    if (u) result.css.push(u);
                 });
-
-                // JavaScript
+                
+                // JS
                 document.querySelectorAll('script[src]').forEach(el => {
-                    const url = normalizeUrl(el.src);
-                    if (url) urls.js.add(url);
+                    const u = norm(el.src);
+                    if (u) result.js.push(u);
                 });
-
+                
                 // Images
-                document.querySelectorAll('img, picture source, [srcset]').forEach(el => {
-                    if (el.src) {
-                        const url = normalizeUrl(el.src);
-                        if (url) urls.images.add(url);
-                    }
-                    if (el.srcset) {
-                        el.srcset.split(',').forEach(src => {
-                            const urlPart = src.trim().split(' ')[0];
-                            const url = normalizeUrl(urlPart);
-                            if (url) urls.images.add(url);
-                        });
-                    }
-                    ['data-src', 'data-lazy-src', 'data-original'].forEach(attr => {
-                        const val = el.getAttribute(attr);
-                        if (val) {
-                            const url = normalizeUrl(val);
-                            if (url) urls.images.add(url);
-                        }
-                    });
+                document.querySelectorAll('img').forEach(el => {
+                    const u = norm(el.src);
+                    if (u) result.images.push(u);
                 });
-
-                // Background images
-                document.querySelectorAll('*').forEach(el => {
-                    try {
-                        const bg = window.getComputedStyle(el).backgroundImage;
-                        if (bg && bg !== 'none') {
-                            const matches = bg.match(/url\(["']?([^"')]+)["']?\)/g);
-                            if (matches) {
-                                matches.forEach(match => {
-                                    const urlMatch = match.match(/url\(["']?([^"')]+)["']?\)/);
-                                    if (urlMatch) {
-                                        const url = normalizeUrl(urlMatch[1]);
-                                        if (url) urls.images.add(url);
-                                    }
-                                });
-                            }
-                        }
-                    } catch (e) {}
-                });
-
-                // Fonts
-                try {
-                    for (let sheet of document.styleSheets) {
-                        try {
-                            for (let rule of sheet.cssRules || []) {
-                                const cssText = rule.cssText || '';
-                                const fontMatches = cssText.match(/url\(["']?([^"')]+\.(woff2?|ttf|eot|otf))["']?\)/gi);
-                                if (fontMatches) {
-                                    fontMatches.forEach(match => {
-                                        const urlMatch = match.match(/url\(["']?([^"')]+)["']?\)/);
-                                        if (urlMatch) {
-                                            const url = normalizeUrl(urlMatch[1]);
-                                            if (url) urls.fonts.add(url);
-                                        }
-                                    });
-                                }
-                            }
-                        } catch (e) {}
-                    }
-                } catch (e) {}
-
-                return {
-                    css: Array.from(urls.css),
-                    js: Array.from(urls.js),
-                    images: Array.from(urls.images),
-                    fonts: Array.from(urls.fonts)
-                };
+                
+                return result;
             }, this.targetUrl);
 
-            this.log(`   📋 CSS: ${resourceUrls.css.length}`);
-            this.log(`   📋 JS: ${resourceUrls.js.length}`);
-            this.log(`   📋 Images: ${resourceUrls.images.length}`);
-            this.log(`   📋 Fonts: ${resourceUrls.fonts.length}\n`);
+            this.log(`   CSS: ${urls.css.length} | JS: ${urls.js.length} | Images: ${urls.images.length}\n`);
 
             // Download CSS
-            this.log('🎨 Downloading CSS...\n');
-            for (let i = 0; i < Math.min(resourceUrls.css.length, 50); i++) {
-                const url = resourceUrls.css[i];
-                const shortUrl = url.length > 60 ? '...' + url.slice(-57) : url;
-                this.log(`   [${i+1}] ${shortUrl}`);
+            this.log('🎨 Downloading CSS...');
+            for (let i = 0; i < Math.min(urls.css.length, 30); i++) {
+                const url = urls.css[i];
                 const content = await this.fetchResource(url);
                 if (content && content.trim()) {
                     this.resources.css.set(url, content);
-                    this.structuredData.externalCSS.push({ url, content });
-                    this.log(`   ✓ ${content.length.toLocaleString()} bytes\n`);
-                } else {
-                    this.log(`   ✗ Failed\n`);
                 }
             }
+            this.log(`   ✓ Downloaded ${this.resources.css.size} files\n`);
 
-            // Download fonts
-            this.log('🔤 Downloading fonts...\n');
-            for (let i = 0; i < Math.min(resourceUrls.fonts.length, 20); i++) {
-                const url = resourceUrls.fonts[i];
-                const shortUrl = url.length > 60 ? '...' + url.slice(-57) : url;
-                this.log(`   [${i+1}] ${shortUrl}`);
-                const content = await this.fetchResource(url, 3, true);
-                if (content && content.length > 0) {
-                    try {
-                        const base64 = content.toString('base64');
-                        const ext = url.split('.').pop().split('?')[0];
-                        const mimeTypes = {
-                            'woff2': 'font/woff2',
-                            'woff': 'font/woff',
-                            'ttf': 'font/ttf',
-                            'otf': 'font/otf',
-                            'eot': 'application/vnd.ms-fontobject'
-                        };
-                        const mimeType = mimeTypes[ext] || 'font/woff2';
-                        this.resources.fonts.set(url, `data:${mimeType};base64,${base64}`);
-                        this.log(`   ✓ ${content.length.toLocaleString()} bytes\n`);
-                    } catch (e) {
-                        this.log(`   ✗ Failed\n`);
-                    }
-                } else {
-                    this.log(`   ✗ Failed\n`);
-                }
-            }
-
-            // Process images
-            if (this.options.downloadImages && this.options.inlineImages) {
-                this.log('🖼️  Inlining images...\n');
-                const imageLimit = Math.min(resourceUrls.images.length, this.options.maxImages);
-                
-                for (let i = 0; i < imageLimit; i++) {
-                    const url = resourceUrls.images[i];
-                    const shortUrl = url.length > 60 ? '...' + url.slice(-57) : url;
-                    this.log(`   [${i+1}/${imageLimit}] ${shortUrl}`);
-                    
-                    const content = await this.fetchResource(url, 2, true);
-                    if (content && content.length > 0 && content.length < this.options.maxImageSize) {
-                        try {
-                            const ext = url.split('.').pop().split('?')[0].toLowerCase();
-                            const mimeTypes = {
-                                'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-                                'png': 'image/png', 'gif': 'image/gif',
-                                'svg': 'image/svg+xml', 'webp': 'image/webp',
-                                'ico': 'image/x-icon', 'bmp': 'image/bmp'
-                            };
-                            const mimeType = mimeTypes[ext] || 'image/jpeg';
-                            const base64 = content.toString('base64');
-                            this.resources.images.set(url, `data:${mimeType};base64,${base64}`);
-                            this.log(`   ✓ Inlined\n`);
-                        } catch (e) {
-                            this.log(`   ✗ Failed\n`);
-                        }
-                    } else {
-                        this.log(`   ⚠ Skipped\n`);
-                    }
-                }
-            }
-
-            // Extract inline CSS
-            this.log('🎨 Extracting inline CSS...\n');
-            this.structuredData.inlineCSS = await page.evaluate(() => {
-                let css = '';
-                
-                // Style tags
-                document.querySelectorAll('style').forEach((style, idx) => {
-                    if (style.textContent) {
-                        css += `\n    /* Inline Style Block ${idx + 1} */\n`;
-                        css += style.textContent.split('\n').map(line => '    ' + line).join('\n') + '\n';
-                    }
-                });
-
-                // Inline styles on elements
-                document.querySelectorAll('[style]').forEach((el, idx) => {
-                    const style = el.getAttribute('style');
-                    if (style && style.trim()) {
-                        const selector = el.id ? `#${el.id}` : 
-                                        el.className ? `.${el.className.toString().split(' ').filter(c => c).join('.')}` :
-                                        `${el.tagName.toLowerCase()}[data-inline-style="${idx}"]`;
-                        if (!el.id && !el.className) {
-                            el.setAttribute('data-inline-style', idx);
-                        }
-                        css += `    ${selector} { ${style} }\n`;
-                    }
-                });
-
-                return css;
-            });
-            this.log(`   ✓ ${this.structuredData.inlineCSS.length.toLocaleString()} characters\n`);
-
-            // Download JavaScript
-            this.log('📜 Downloading JavaScript...\n');
-            for (let i = 0; i < Math.min(resourceUrls.js.length, 30); i++) {
-                const url = resourceUrls.js[i];
-                const shortUrl = url.length > 60 ? '...' + url.slice(-57) : url;
-                this.log(`   [${i+1}] ${shortUrl}`);
+            // Download JS
+            this.log('📜 Downloading JS...');
+            for (let i = 0; i < Math.min(urls.js.length, 20); i++) {
+                const url = urls.js[i];
                 const content = await this.fetchResource(url);
                 if (content && content.trim()) {
                     this.resources.js.set(url, content);
-                    this.structuredData.externalJS.push({ url, content });
-                    this.log(`   ✓ ${content.length.toLocaleString()} bytes\n`);
-                } else {
-                    this.log(`   ✗ Failed\n`);
                 }
             }
+            this.log(`   ✓ Downloaded ${this.resources.js.size} files\n`);
+
+            // Inline images if requested
+            if (this.options.inlineImages) {
+                this.log('🖼️  Inlining images...');
+                let count = 0;
+                for (let i = 0; i < Math.min(urls.images.length, 50); i++) {
+                    const url = urls.images[i];
+                    const data = await this.fetchResource(url, 2, true);
+                    if (data && data.length > 0 && data.length < 300000) {
+                        try {
+                            const ext = url.split('.').pop().split('?')[0].toLowerCase();
+                            const mime = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', 
+                                         gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' }[ext] || 'image/jpeg';
+                            this.resources.images.set(url, `data:${mime};base64,${data.toString('base64')}`);
+                            count++;
+                        } catch (e) {}
+                    }
+                }
+                this.log(`   ✓ Inlined ${count} images\n`);
+            }
+
+            // Extract inline CSS
+            this.log('🎨 Extracting inline CSS...');
+            const inlineCSS = await page.evaluate(() => {
+                let css = '';
+                document.querySelectorAll('style').forEach((s, i) => {
+                    if (s.textContent) {
+                        css += `\n    /* Style Block ${i + 1} */\n`;
+                        css += s.textContent.split('\n').map(l => '    ' + l).join('\n') + '\n';
+                    }
+                });
+                document.querySelectorAll('[style]').forEach((el, i) => {
+                    const style = el.getAttribute('style');
+                    if (style) {
+                        const sel = el.id ? `#${el.id}` : 
+                                   el.className ? `.${el.className.toString().split(' ')[0]}` :
+                                   `[data-s="${i}"]`;
+                        if (!el.id && !el.className) el.setAttribute('data-s', i);
+                        css += `    ${sel} { ${style} }\n`;
+                    }
+                });
+                return css;
+            });
+            this.log(`   ✓ ${inlineCSS.length} chars\n`);
 
             // Extract inline JS
-            this.log('📜 Extracting inline JavaScript...\n');
-            this.structuredData.inlineJS = await page.evaluate(() => {
+            this.log('📜 Extracting inline JS...');
+            const inlineJS = await page.evaluate(() => {
                 let js = '';
-                document.querySelectorAll('script:not([src])').forEach((script, idx) => {
-                    const content = script.textContent;
-                    if (content && content.trim() && 
-                        !content.includes('google-analytics') &&
-                        !content.includes('gtag') &&
-                        !content.includes('googletagmanager')) {
-                        js += `\n    // Inline Script ${idx + 1}\n`;
-                        js += content.split('\n').map(line => '    ' + line).join('\n') + '\n';
+                document.querySelectorAll('script:not([src])').forEach((s, i) => {
+                    const code = s.textContent;
+                    if (code && !code.includes('google-analytics') && !code.includes('gtag')) {
+                        js += `\n    // Script ${i + 1}\n`;
+                        js += code.split('\n').map(l => '    ' + l).join('\n') + '\n';
                     }
                 });
                 return js;
             });
-            this.log(`   ✓ ${this.structuredData.inlineJS.length.toLocaleString()} characters\n`);
+            this.log(`   ✓ ${inlineJS.length} chars\n`);
 
-            // Extract body
-            this.log('🔨 Extracting body content...\n');
-            this.structuredData.body = await page.evaluate(() => {
-                return document.body ? document.body.innerHTML : '';
-            });
-            this.log(`   ✓ ${this.structuredData.body.length.toLocaleString()} characters\n`);
-
-            // Build structured HTML
-            this.log('🔨 Building structured HTML...\n');
-            const html = this.buildStructuredHTML();
+            // Get body
+            this.log('🔨 Extracting body...');
+            let body = await page.evaluate(() => document.body ? document.body.innerHTML : '');
+            
+            // Replace images if inlined
+            if (this.options.inlineImages) {
+                this.resources.images.forEach((dataUri, url) => {
+                    if (dataUri.startsWith('data:')) {
+                        const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        body = body.replace(new RegExp(escaped, 'g'), dataUri);
+                    }
+                });
+            }
+            
+            this.log(`   ✓ ${body.length} chars\n`);
 
             await browser.close();
             browser = null;
 
-            // Save files
-            const outputFile = path.join(this.options.outputDir, 'index.html');
-            await fs.writeFile(outputFile, html, 'utf8');
+            // Build HTML
+            this.log('🔨 Building HTML...');
+            const html = this.buildHTML(meta, inlineCSS, inlineJS, body);
 
-            // Save structured JSON for easy parsing
-            const structuredFile = path.join(this.options.outputDir, 'structure.json');
-            await fs.writeFile(structuredFile, JSON.stringify({
-                metadata: this.structuredData.metadata,
-                cssFiles: this.structuredData.externalCSS.map(css => ({ url: css.url, size: css.content.length })),
-                jsFiles: this.structuredData.externalJS.map(js => ({ url: js.url, size: js.content.length })),
-                inlineCSSSize: this.structuredData.inlineCSS.length,
-                inlineJSSize: this.structuredData.inlineJS.length,
-                bodySize: this.structuredData.body.length
-            }, null, 2), 'utf8');
+            // Save
+            const file = path.join(this.options.outputDir, 'index.html');
+            await fs.writeFile(file, html, 'utf8');
+
+            // Save metadata
+            await fs.writeFile(
+                path.join(this.options.outputDir, 'structure.json'),
+                JSON.stringify({
+                    metadata: meta,
+                    resources: {
+                        css: this.resources.css.size,
+                        js: this.resources.js.size,
+                        images: this.resources.images.size
+                    },
+                    sizes: {
+                        html: html.length,
+                        body: body.length,
+                        inlineCSS: inlineCSS.length,
+                        inlineJS: inlineJS.length
+                    },
+                    strategy: strategy
+                }, null, 2),
+                'utf8'
+            );
 
             this.log('╔════════════════════════════════════════════╗');
-            this.log('║    ✅ SCRAPING COMPLETED!                 ║');
+            this.log('║    ✅ SUCCESS!                            ║');
             this.log('╚════════════════════════════════════════════╝\n');
             this.log('📊 Summary:\n');
             this.log(`   ✅ CSS: ${this.resources.css.size} files`);
             this.log(`   ✅ JS: ${this.resources.js.size} files`);
-            this.log(`   ✅ Images: ${this.resources.images.size} processed`);
-            this.log(`   ✅ Fonts: ${this.resources.fonts.size} inlined`);
+            this.log(`   ✅ Images: ${this.resources.images.size}`);
             this.log(`   ✅ HTML: ${html.length.toLocaleString()} bytes`);
-            this.log(`   📁 Saved: ${outputFile}`);
-            this.log(`   📄 Structure: ${structuredFile}`);
-            this.log(`   🎯 Strategy: ${finalStrategy}\n`);
+            this.log(`   📁 Saved: ${file}\n`);
 
             console.log(html);
-
-            return { success: true, html, outputFile, structuredData: this.structuredData };
+            return { success: true, html, file };
 
         } catch (error) {
             this.log(`\n❌ ERROR: ${error.message}`);
-            if (error.stack) {
-                this.log(error.stack);
-            }
             if (browser) {
-                try { 
-                    await browser.close(); 
-                } catch (e) {}
+                try { await browser.close(); } catch (e) {}
             }
             process.exit(1);
         }
     }
 
-    buildStructuredHTML() {
-        const { metadata, externalCSS, inlineCSS, externalJS, inlineJS, body } = this.structuredData;
-
-        // Build CSS section
-        let cssContent = '';
+    buildHTML(meta, inlineCSS, inlineJS, body) {
+        let css = '';
         
-        // Add external CSS files
-        if (externalCSS.length > 0) {
-            cssContent += '    /* ========== External CSS Files ========== */\n\n';
-            externalCSS.forEach((css, idx) => {
-                let processed = css.content;
-                
-                // Replace font URLs with data URIs
-                this.resources.fonts.forEach((dataUri, fontUrl) => {
-                    const escaped = fontUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    processed = processed.replace(new RegExp(escaped, 'g'), dataUri);
-                });
-                
-                // Replace image URLs if inlined
-                if (this.options.inlineImages) {
-                    this.resources.images.forEach((dataUri, imgUrl) => {
-                        if (dataUri.startsWith('data:')) {
-                            const escaped = imgUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                            processed = processed.replace(new RegExp(escaped, 'g'), dataUri);
-                        }
-                    });
-                }
-                
-                cssContent += `    /* File ${idx + 1}: ${css.url} */\n`;
-                cssContent += processed.split('\n').map(line => '    ' + line).join('\n') + '\n\n';
+        // External CSS
+        if (this.resources.css.size > 0) {
+            css += '    /* ========== External CSS Files ========== */\n\n';
+            this.resources.css.forEach((content, url) => {
+                css += `    /* ${url} */\n`;
+                css += content.split('\n').map(l => '    ' + l).join('\n') + '\n\n';
             });
         }
-
-        // Add inline CSS
+        
+        // Inline CSS
         if (inlineCSS) {
-            cssContent += '    /* ========== Inline & Page Styles ========== */\n';
-            cssContent += inlineCSS;
+            css += '    /* ========== Inline & Page Styles ========== */\n';
+            css += inlineCSS;
         }
 
-        // Build JS section
-        let jsContent = '';
+        let js = '';
         
-        // Add external JS files
-        if (externalJS.length > 0) {
-            jsContent += '    // ========== External JavaScript Files ==========\n\n';
-            externalJS.forEach((js, idx) => {
-                jsContent += `    // File ${idx + 1}: ${js.url}\n`;
-                jsContent += js.content.split('\n').map(line => '    ' + line).join('\n') + '\n\n';
+        // External JS
+        if (this.resources.js.size > 0) {
+            js += '    // ========== External JavaScript Files ==========\n\n';
+            this.resources.js.forEach((content, url) => {
+                js += `    // ${url}\n`;
+                js += content.split('\n').map(l => '    ' + l).join('\n') + '\n\n';
             });
         }
-
-        // Add inline JS
+        
+        // Inline JS
         if (inlineJS) {
-            jsContent += '    // ========== Inline Scripts ==========\n';
-            jsContent += inlineJS;
+            js += '    // ========== Inline Scripts ==========\n';
+            js += inlineJS;
         }
 
-        // Process body for image replacement
-        let processedBody = body;
-        if (this.options.inlineImages) {
-            this.resources.images.forEach((dataUri, imgUrl) => {
-                if (dataUri.startsWith('data:')) {
-                    const escaped = imgUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\        // Process body for image replacement
-        let processedBody = body;
-        if (this.options.inlineImages) {
-            this.resources.images.forEach((dataUri, imgUrl) => {
-                if (dataUri.startsWith('data:')) {
-                    const escaped = imgUrl.replace(/[.*+');
-                    processedBody = processedBody.replace(new RegExp(escaped, 'g'), dataUri);
-                }
-            });
-        }
-
-        // Build final HTML with proper structure
-        const html = `<!DOCTYPE html>
+        return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="${metadata.charset || 'UTF-8'}">
-  <meta name="viewport" content="${metadata.viewport || 'width=device-width, initial-scale=1.0'}">
-  ${metadata.description ? `<meta name="description" content="${metadata.description}">` : ''}
-  ${metadata.keywords ? `<meta name="keywords" content="${metadata.keywords}">` : ''}
-  ${metadata.author ? `<meta name="author" content="${metadata.author}">` : ''}
-  <title>${metadata.title || 'Scraped Website'}</title>
+  <meta charset="${meta.charset}">
+  <meta name="viewport" content="${meta.viewport}">
+  ${meta.description ? `<meta name="description" content="${meta.description}">` : ''}
+  <title>${meta.title}</title>
   <base href="${this.targetUrl}">
   
-  <!-- Google Fonts and External Resources -->
+  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
   
   <style>
-${cssContent}
+${css}
   </style>
 </head>
 <body>
 
-${processedBody}
+${body}
 
   <!-- JavaScript -->
   <script>
-${jsContent}
+${js}
   </script>
 
 </body>
 </html>`;
-
-        return html;
     }
 }
 
@@ -784,110 +534,77 @@ if (require.main === module) {
     if (args.length === 0 || args.includes('--help')) {
         console.error(`
 ╔════════════════════════════════════════════╗
-║  ENHANCED WEBSITE SCRAPER v2.1            ║
-║  Structured HTML Output Format            ║
+║  WEBSITE SCRAPER v2.1                     ║
 ╚════════════════════════════════════════════╝
 
 USAGE:
   node scraper.js <url> [options]
 
-URL FORMATS SUPPORTED:
-  ✓ https://example.com
-  ✓ http://example.com
-  ✓ www.example.com
+URL FORMATS (all work):
   ✓ example.com
-  ✓ https://www.example.com
+  ✓ www.example.com
+  ✓ http://example.com
+  ✓ https://example.com
 
 OPTIONS:
-  --timeout <ms>       Timeout in milliseconds (default: 120000)
-  --no-dynamic         Skip dynamic content wait
-  --no-images          Skip image downloading
-  --inline-images      Inline images as base64 data URIs
-  --max-scrolls <n>    Max scroll iterations (default: 100)
-  --screenshot         Save debug screenshot
+  --timeout <ms>       Timeout (default: 90000)
+  --no-dynamic         Skip wait for dynamic content
+  --inline-images      Inline images as base64
+  --max-scrolls <n>    Scroll iterations (default: 80)
   --output-dir <path>  Output directory (default: ./scraped_output)
 
 EXAMPLES:
   node scraper.js example.com
   node scraper.js www.example.com --inline-images
-  node scraper.js https://example.com --screenshot
-  node scraper.js example.com --output-dir ./backup
+  node scraper.js https://example.com --timeout 120000
 
-OUTPUT FILES:
-  - index.html       Complete HTML file (structured format)
-  - structure.json   Metadata and structure info
-  - debug_screenshot.png (if --screenshot used)
-
-STRUCTURED FORMAT:
-  The output HTML is organized like:
-  <!DOCTYPE html>
-  <html>
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="...">
-      <title>...</title>
-      <style>
-        /* External CSS files */
-        /* Inline styles */
-      </style>
-    </head>
-    <body>
-      <!-- All page content -->
-      <script>
-        // External JS files
-        // Inline scripts
-      </script>
-    </body>
-  </html>
-
-FEATURES:
-  ✓ Auto-detects http/https
-  ✓ Handles www and non-www domains
-  ✓ Structured, readable HTML output
-  ✓ Easy to extract and modify CSS/JS/Body
-  ✓ Preserves all metadata
-  ✓ Works with WordPress, Blogger, Netlify, etc.
+TROUBLESHOOTING:
+  Error: "Cannot find module 'puppeteer'"
+  → Run: npm install puppeteer
+  
+  Error: "Browser launch failed"
+  → Run: npm install puppeteer --force
+  
+  Error: "Navigation timeout"
+  → Use: --timeout 180000
+  
+  Error: "Exit code 1"
+  → Check your internet connection
+  → Verify URL is accessible in browser
+  → Try: node scraper.js example.com --no-dynamic
 `);
         process.exit(0);
     }
 
-    let url = args[0];
-    const options = {};
+    const url = args[0];
+    const opts = {};
 
-    // Parse options
     for (let i = 1; i < args.length; i++) {
         if (args[i] === '--timeout' && args[i+1]) {
-            options.timeout = parseInt(args[++i]) || 120000;
+            opts.timeout = parseInt(args[++i]) || 90000;
         } else if (args[i] === '--no-dynamic') {
-            options.waitForDynamic = false;
-        } else if (args[i] === '--no-images') {
-            options.downloadImages = false;
+            opts.waitForDynamic = false;
         } else if (args[i] === '--inline-images') {
-            options.inlineImages = true;
+            opts.inlineImages = true;
         } else if (args[i] === '--max-scrolls' && args[i+1]) {
-            options.maxScrolls = parseInt(args[++i]) || 100;
-        } else if (args[i] === '--screenshot') {
-            options.screenshotDebug = true;
+            opts.maxScrolls = parseInt(args[++i]) || 80;
         } else if (args[i] === '--output-dir' && args[i+1]) {
-            options.outputDir = args[++i];
+            opts.outputDir = args[++i];
         }
     }
 
-    // URL will be normalized in the constructor
     try {
-        const scraper = new EnhancedWebsiteScraper(url, options);
-        scraper.scrape().catch(error => {
-            console.error('❌ Fatal:', error.message);
+        const scraper = new WebsiteScraper(url, opts);
+        scraper.scrape().catch(err => {
+            console.error('❌ Fatal:', err.message);
             process.exit(1);
         });
-    } catch (error) {
-        console.error('❌ Error:', error.message);
-        console.error('\nPlease provide a valid URL. Examples:');
-        console.error('  node scraper.js example.com');
-        console.error('  node scraper.js www.example.com');
-        console.error('  node scraper.js https://example.com');
+    } catch (err) {
+        console.error('❌ Error:', err.message);
+        console.error('\nUsage: node scraper.js <url>');
+        console.error('Example: node scraper.js example.com');
         process.exit(1);
     }
 }
 
-module.exports = EnhancedWebsiteScraper;
+module.exports = WebsiteScraper;
