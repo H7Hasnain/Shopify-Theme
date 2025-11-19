@@ -1,11 +1,6 @@
-# ============================================
-# .github/workflows/deepseek-automation.yml
-# ============================================
-
 name: DeepSeek Chat Automation
 
 on:
-  # Trigger manually from GitHub Actions tab
   workflow_dispatch:
     inputs:
       message:
@@ -13,13 +8,8 @@ on:
         required: true
         default: 'Hello, how are you?'
   
-  # Trigger via API/webhook
   repository_dispatch:
     types: [deepseek-chat]
-  
-  # Schedule (runs daily at 9 AM UTC) - Optional
-  # schedule:
-  #   - cron: '0 9 * * *'
 
 env:
   DEEPSEEK_EMAIL: ${{ secrets.DEEPSEEK_EMAIL }}
@@ -37,11 +27,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # Cache removed to avoid lock file requirement
       
       - name: 📦 Install Dependencies
         run: |
-          npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
+          npm install puppeteer
       
       - name: 🌐 Install Chrome Dependencies
         run: |
@@ -82,52 +72,8 @@ jobs:
           name: deepseek-response-${{ github.run_number }}
           path: |
             result.json
-            screenshot.png
+            screenshot*.png
           retention-days: 7
-      
-      - name: 📝 Create Issue with Response (Optional)
-        if: success()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            let result = {};
-            try {
-              result = JSON.parse(fs.readFileSync('result.json', 'utf8'));
-            } catch (e) {
-              console.log('Could not read result file');
-            }
-            
-            if (result.success) {
-              github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: `DeepSeek Response - ${new Date().toISOString()}`,
-                body: `## 🤖 DeepSeek Response\n\n**Your Message:**\n${result.userMessage}\n\n**AI Response:**\n\`\`\`\n${result.aiResponse}\n\`\`\`\n\n**Timestamp:** ${result.timestamp}`
-              });
-            }
-      
-      - name: 💬 Comment on Commit (Optional)
-        if: success() && github.event_name == 'push'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            let result = {};
-            try {
-              result = JSON.parse(fs.readFileSync('result.json', 'utf8'));
-            } catch (e) {
-              console.log('Could not read result file');
-            }
-            
-            if (result.success) {
-              github.rest.repos.createCommitComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                commit_sha: context.sha,
-                body: `🤖 **DeepSeek Response**\n\n${result.aiResponse.substring(0, 500)}...`
-              });
-            }
       
       - name: ❌ Notify on Failure
         if: failure()
