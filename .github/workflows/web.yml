@@ -18,6 +18,7 @@ env:
 jobs:
   deepseek-automation:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     
     steps:
       - name: 📥 Checkout Repository
@@ -27,11 +28,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # Cache removed to avoid lock file requirement
       
-      - name: 📦 Install Dependencies
+      - name: 📦 Install Puppeteer
         run: |
           npm install puppeteer
+          echo "✅ Puppeteer installed"
       
       - name: 🌐 Install Chrome Dependencies
         run: |
@@ -50,20 +51,40 @@ jobs:
             libxrandr2 \
             libgbm1 \
             libasound2
+          echo "✅ Chrome dependencies installed"
       
       - name: 🤖 Run DeepSeek Automation
         id: deepseek
-        run: node deepseek-bot.js
+        run: |
+          echo "Starting DeepSeek automation..."
+          node deepseek-bot.js
         env:
           USER_MESSAGE: ${{ github.event.inputs.message || github.event.client_payload.message || 'Hello from GitHub Actions!' }}
+        continue-on-error: true
       
       - name: 📊 Display Results
         if: always()
         run: |
-          echo "==================================="
+          echo "========================================="
           echo "DeepSeek Automation Results"
-          echo "==================================="
-          cat result.json || echo "No result file found"
+          echo "========================================="
+          if [ -f result.json ]; then
+            cat result.json
+            echo ""
+            echo "========================================="
+          else
+            echo "⚠️ result.json not found"
+          fi
+      
+      - name: 📸 List Generated Files
+        if: always()
+        run: |
+          echo "Files in working directory:"
+          ls -la
+          echo ""
+          echo "Looking for screenshots and results..."
+          ls -la *.png 2>/dev/null || echo "No screenshots found"
+          ls -la *.json 2>/dev/null || echo "No JSON files found"
       
       - name: 💾 Upload Results as Artifact
         if: always()
@@ -73,9 +94,38 @@ jobs:
           path: |
             result.json
             screenshot*.png
+          if-no-files-found: warn
           retention-days: 7
       
-      - name: ❌ Notify on Failure
-        if: failure()
+      - name: ✅ Check Success
+        if: always()
         run: |
-          echo "::error::DeepSeek automation failed. Check logs for details."
+          if [ -f result.json ]; then
+            SUCCESS=$(cat result.json | grep -o '"success"[[:space:]]*:[[:space:]]*true' || echo "")
+            if [ -z "$SUCCESS" ]; then
+              echo "::error::DeepSeek automation failed. Check result.json for details."
+              exit 1
+            else
+              echo "::notice::DeepSeek automation completed successfully!"
+              exit 0
+            fi
+          else
+            echo "::error::result.json not found - automation may have crashed"
+            exit 1
+          fi
+      
+      - name: 📝 Create Summary
+        if: always()
+        run: |
+          echo "## 🤖 DeepSeek Automation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f result.json ]; then
+            echo "### Results:" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat result.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No results file found" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date)" >> $GITHUB_STEP_SUMMARY
