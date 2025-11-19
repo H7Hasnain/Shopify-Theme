@@ -1,0 +1,135 @@
+# ============================================
+# .github/workflows/deepseek-automation.yml
+# ============================================
+
+name: DeepSeek Chat Automation
+
+on:
+  # Trigger manually from GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Message to send to DeepSeek'
+        required: true
+        default: 'Hello, how are you?'
+  
+  # Trigger via API/webhook
+  repository_dispatch:
+    types: [deepseek-chat]
+  
+  # Schedule (runs daily at 9 AM UTC) - Optional
+  # schedule:
+  #   - cron: '0 9 * * *'
+
+env:
+  DEEPSEEK_EMAIL: ${{ secrets.DEEPSEEK_EMAIL }}
+  DEEPSEEK_PASSWORD: ${{ secrets.DEEPSEEK_PASSWORD }}
+
+jobs:
+  deepseek-automation:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: 📦 Install Dependencies
+        run: |
+          npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
+      
+      - name: 🌐 Install Chrome Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 \
+            libnspr4 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libdrm2 \
+            libxkbcommon0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libgbm1 \
+            libasound2
+      
+      - name: 🤖 Run DeepSeek Automation
+        id: deepseek
+        run: node deepseek-bot.js
+        env:
+          USER_MESSAGE: ${{ github.event.inputs.message || github.event.client_payload.message || 'Hello from GitHub Actions!' }}
+      
+      - name: 📊 Display Results
+        if: always()
+        run: |
+          echo "==================================="
+          echo "DeepSeek Automation Results"
+          echo "==================================="
+          cat result.json || echo "No result file found"
+      
+      - name: 💾 Upload Results as Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-response-${{ github.run_number }}
+          path: |
+            result.json
+            screenshot.png
+          retention-days: 7
+      
+      - name: 📝 Create Issue with Response (Optional)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let result = {};
+            try {
+              result = JSON.parse(fs.readFileSync('result.json', 'utf8'));
+            } catch (e) {
+              console.log('Could not read result file');
+            }
+            
+            if (result.success) {
+              github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `DeepSeek Response - ${new Date().toISOString()}`,
+                body: `## 🤖 DeepSeek Response\n\n**Your Message:**\n${result.userMessage}\n\n**AI Response:**\n\`\`\`\n${result.aiResponse}\n\`\`\`\n\n**Timestamp:** ${result.timestamp}`
+              });
+            }
+      
+      - name: 💬 Comment on Commit (Optional)
+        if: success() && github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let result = {};
+            try {
+              result = JSON.parse(fs.readFileSync('result.json', 'utf8'));
+            } catch (e) {
+              console.log('Could not read result file');
+            }
+            
+            if (result.success) {
+              github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha,
+                body: `🤖 **DeepSeek Response**\n\n${result.aiResponse.substring(0, 500)}...`
+              });
+            }
+      
+      - name: ❌ Notify on Failure
+        if: failure()
+        run: |
+          echo "::error::DeepSeek automation failed. Check logs for details."
