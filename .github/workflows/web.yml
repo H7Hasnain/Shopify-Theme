@@ -1,4 +1,4 @@
-name: DeepSeek Chat Automation
+name: DeepSeek AI Chat
 
 on:
   workflow_dispatch:
@@ -7,125 +7,54 @@ on:
         description: 'Message to send to DeepSeek'
         required: true
         default: 'Hello, how are you?'
-  
-  repository_dispatch:
-    types: [deepseek-chat]
-
-env:
-  DEEPSEEK_EMAIL: ${{ secrets.DEEPSEEK_EMAIL }}
-  DEEPSEEK_PASSWORD: ${{ secrets.DEEPSEEK_PASSWORD }}
+        type: string
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 12 * * *'  # Daily at 12 PM UTC
 
 jobs:
-  deepseek-automation:
+  deepseek-chat:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     
     steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-      
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      
-      - name: 📦 Install Puppeteer
-        run: |
-          npm install puppeteer
-          echo "✅ Puppeteer installed"
-      
-      - name: 🌐 Install Chrome Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libnss3 \
-            libnspr4 \
-            libatk1.0-0 \
-            libatk-bridge2.0-0 \
-            libcups2 \
-            libdrm2 \
-            libxkbcommon0 \
-            libxcomposite1 \
-            libxdamage1 \
-            libxfixes3 \
-            libxrandr2 \
-            libgbm1 \
-            libasound2
-          echo "✅ Chrome dependencies installed"
-      
-      - name: 🤖 Run DeepSeek Automation
-        id: deepseek
-        run: |
-          echo "Starting DeepSeek automation..."
-          node deepseek-bot.js
-        env:
-          USER_MESSAGE: ${{ github.event.inputs.message || github.event.client_payload.message || 'Hello from GitHub Actions!' }}
-        continue-on-error: true
-      
-      - name: 📊 Display Results
-        if: always()
-        run: |
-          echo "========================================="
-          echo "DeepSeek Automation Results"
-          echo "========================================="
-          if [ -f result.json ]; then
-            cat result.json
-            echo ""
-            echo "========================================="
-          else
-            echo "⚠️ result.json not found"
-          fi
-      
-      - name: 📸 List Generated Files
-        if: always()
-        run: |
-          echo "Files in working directory:"
-          ls -la
-          echo ""
-          echo "Looking for screenshots and results..."
-          ls -la *.png 2>/dev/null || echo "No screenshots found"
-          ls -la *.json 2>/dev/null || echo "No JSON files found"
-      
-      - name: 💾 Upload Results as Artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: deepseek-response-${{ github.run_number }}
-          path: |
-            result.json
-            screenshot*.png
-          if-no-files-found: warn
-          retention-days: 7
-      
-      - name: ✅ Check Success
-        if: always()
-        run: |
-          if [ -f result.json ]; then
-            SUCCESS=$(cat result.json | grep -o '"success"[[:space:]]*:[[:space:]]*true' || echo "")
-            if [ -z "$SUCCESS" ]; then
-              echo "::error::DeepSeek automation failed. Check result.json for details."
-              exit 1
-            else
-              echo "::notice::DeepSeek automation completed successfully!"
-              exit 0
-            fi
-          else
-            echo "::error::result.json not found - automation may have crashed"
-            exit 1
-          fi
-      
-      - name: 📝 Create Summary
-        if: always()
-        run: |
-          echo "## 🤖 DeepSeek Automation Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f result.json ]; then
-            echo "### Results:" >> $GITHUB_STEP_SUMMARY
-            echo '```json' >> $GITHUB_STEP_SUMMARY
-            cat result.json >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ No results file found" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Timestamp:** $(date)" >> $GITHUB_STEP_SUMMARY
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        npm install puppeteer
+
+    - name: Run DeepSeek Chat
+      env:
+        DEEPSEEK_EMAIL: ${{ secrets.DEEPSEEK_EMAIL }}
+        DEEPSEEK_PASSWORD: ${{ secrets.DEEPSEEK_PASSWORD }}
+        USER_MESSAGE: ${{ github.event.inputs.message || 'Hello, tell me something interesting!' }}
+      run: |
+        node deepseek.js
+
+    - name: Upload response as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: deepseek-response
+        path: deepseek_response.txt
+        retention-days: 1
+
+    - name: Display response
+      run: |
+        echo "🤖 DeepSeek Response:"
+        cat deepseek_response.txt
+
+    - name: Create summary
+      run: |
+        RESPONSE=$(cat deepseek_response.txt)
+        echo "## DeepSeek AI Response" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "$RESPONSE" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
