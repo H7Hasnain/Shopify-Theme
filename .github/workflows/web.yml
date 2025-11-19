@@ -29,7 +29,18 @@ jobs:
 
     - name: Install dependencies
       run: |
+        npm init -y
         npm install puppeteer
+        # Create package-lock.json for caching
+        npm install --package-lock-only
+
+    - name: Cache node modules
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
 
     - name: Run DeepSeek Chat
       env:
@@ -49,12 +60,22 @@ jobs:
     - name: Display response
       run: |
         echo "🤖 DeepSeek Response:"
-        cat deepseek_response.txt
+        if [ -f deepseek_response.txt ]; then
+          cat deepseek_response.txt
+        else
+          echo "No response file found"
+        fi
 
     - name: Create summary
+      if: always()
       run: |
-        RESPONSE=$(cat deepseek_response.txt)
-        echo "## DeepSeek AI Response" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        echo "$RESPONSE" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        if [ -f deepseek_response.txt ]; then
+          RESPONSE=$(cat deepseek_response.txt)
+          echo "## DeepSeek AI Response" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "$RESPONSE" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "## ❌ DeepSeek Run Failed" >> $GITHUB_STEP_SUMMARY
+          echo "No response file was generated." >> $GITHUB_STEP_SUMMARY
+        fi
